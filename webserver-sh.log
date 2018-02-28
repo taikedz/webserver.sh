@@ -1,0 +1,14 @@
+webserver.sh 2018-02-28 23:22:51 Selecting log file
+webserver.sh 2018-02-28 23:22:51 INFO: Starting web server on 8080
+webserver.sh 2018-02-28 23:22:53 INFO: Received connection
+webserver.sh 2018-02-28 23:22:53 INFO: Serving / listing
+webserver.sh 2018-02-28 23:23:01 INFO: Received connection
+webserver.sh 2018-02-28 23:23:01 INFO: Serving /build-outd listing
+webserver.sh 2018-02-28 23:23:07 INFO: Received connection
+webserver.sh 2018-02-28 23:23:07 INFO: Serving /build-outd/webserver.sh
+webserver.sh 2018-02-28 23:25:34 Selecting log file
+webserver.sh 2018-02-28 23:25:34 INFO: Starting web server on 8080
+webserver.sh 2018-02-28 23:25:36 INFO: Received connection
+webserver.sh 2018-02-28 23:25:36 INFO: Serving /build-outd/webserver.sh
+webserver.sh 2018-02-28 23:27:03 Selecting log file
+webserver.sh 2018-02-28 23:27:03 INFO: Starting web server on 8080

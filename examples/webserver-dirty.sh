@@ -25,10 +25,10 @@ while true; do
 	cat "$input"
 
 	if [[ -f "$target" ]]; then
-		echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: $(stat --printf="%s" "$target")\r\n\r\n"
+		echo -e "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: $(stat --printf="%s" "$target")\r\n\r\n" >> "$output"
 		cat "$target" >> "$output"
 	else	
-		echo -e "HTTP/1.1 400 No good\r\nContent-Type: text/plain\r\nContent-Length: 21\r\n\r\nFile not found!"
+		echo -e "HTTP/1.1 400 No good\r\nContent-Type: text/plain\r\nContent-Length: 21\r\n\r\nFile not found!" >> "$output"
 	fi
 
 	rm "$input" "$output" "$pidfile"
