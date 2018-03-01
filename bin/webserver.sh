@@ -27,17 +27,23 @@
 #
 # Example:
 # 	
-# 	echo "${CRED}Some red text ${CBBLU} some blue text $CDEF some text in the terminal's default colour"
+# 	echo -e "${CRED}Some red text ${CBBLU} some blue text $CDEF some text in the terminal's default colour"
+#
+# Requires processing of escape characters.
 #
 # Colours available:
 #
-# CDEF -- switches to the terminal default
+# CRED, CBRED, HLRED -- red, bold red, highlight red
+# CGRN, CBGRN, HLGRN -- green, bold green, highlight green
+# CYEL, CBYEL, HLYEL -- yellow, bold yellow, highlight yellow
+# CBLU, CBBLU, HLBLU -- blue, bold blue, highlight blue
+# CPUR, CBPUR, HLPUR -- purple, bold purple, highlight purple
+# CTEA, CBTEA, HLTEA -- teal, bold teal, highlight teal
 #
-# CRED, CBRED -- red, bold red
-# CGRN, CBGRN -- green, bold green
-# CYEL, CBYEL -- yellow, bold yellow
-# CBLU, CBBLU -- blue, bold blue
-# CPUR, CBPUR -- purple, bold purple
+# CDEF -- switches to the terminal default
+# CUNL -- add underline
+#
+# Note that highlight and underline must be applied or re-applied after specifying a colour.
 #
 ###/doc
 
@@ -46,11 +52,22 @@ export CGRN="\033[0;32m"
 export CYEL="\033[0;33m"
 export CBLU="\033[0;34m"
 export CPUR="\033[0;35m"
+export CTEA="\033[0;36m"
+
 export CBRED="\033[1;31m"
 export CBGRN="\033[1;32m"
 export CBYEL="\033[1;33m"
 export CBBLU="\033[1;34m"
 export CBPUR="\033[1;35m"
+export CBTEA="\033[1;36m"
+
+export HLRED="\033[41m"
+export HLGRN="\033[42m"
+export HLYEL="\033[43m"
+export HLBLU="\033[44m"
+export HLPUR="\033[45m"
+export HLTEA="\033[46m"
+
 export CDEF="\033[0m"
 
 ### Console output handlers Usage:bbuild
@@ -69,13 +86,19 @@ export CDEF="\033[0m"
 : ${MODE_DEBUG=false}
 : ${MODE_DEBUG_VERBOSE=false}
 
+# Internal
+function out:buffer_initialize {
+	OUTPUT_BUFFER_defer=(:)
+}
+out:buffer_initialize
+
 ### out:debug MESSAGE Usage:bbuild
 # print a blue debug message to stderr
 # only prints if MODE_DEBUG is set to "true"
 ###/doc
 function out:debug {
 	if [[ "$MODE_DEBUG" = true ]]; then
-		echo -e "${CBBLU}DEBUG:$CBLU$*$CDEF" 1>&2
+		echo -e "${CBBLU}DEBUG: $CBLU$*$CDEF" 1>&2
 	fi
 }
 
@@ -90,7 +113,41 @@ function out:info {
 # print a yellow warning message to stderr
 ###/doc
 function out:warn {
-	echo -e "${CBYEL}WARN:$CYEL $*$CDEF" 1>&2
+	echo -e "${CBYEL}WARN: $CYEL$*$CDEF" 1>&2
+}
+
+### out:defer MESSAGE Usage:bbuild
+# Store a message in the output buffer for later use
+###/doc
+function out:defer {
+	OUTPUT_BUFFER_defer[${#OUTPUT_BUFFER_defer[@]}]="$*"
+}
+
+### out:flush HANDLER ... Usage:bbuild
+#
+# Pass the output buffer to the command defined by HANDLER
+# and empty the buffer
+#
+# Examples:
+#
+# 	out:flush echo -e
+#
+# 	out:flush out:warn
+#
+# (escaped newlines are added in the buffer, so `-e` option is
+#  needed to process the escape sequences)
+#
+###/doc
+function out:flush {
+	[[ -n "$*" ]] || out:fail "Did not provide a command for buffered output\n\n${OUTPUT_BUFFER_defer[*]}"
+
+	[[ "${#OUTPUT_BUFFER_defer[@]}" -gt 1 ]] || return
+
+	for buffer_line in "${OUTPUT_BUFFER_defer[@]:1}"; do
+		"$@" "$buffer_line"
+	done
+
+	out:buffer_initialize
 }
 
 ### out:fail [CODE] MESSAGE Usage:bbuild
@@ -106,8 +163,17 @@ function out:fail {
 		ERCODE="$1"; shift
 	fi
 
-	echo -e "${CBRED}ERROR FAIL:$CRED$*$CDEF" 1>&2
+	echo -e "${CBRED}ERROR FAIL: $CRED$*$CDEF" 1>&2
 	exit $ERCODE
+}
+
+### out:error MESSAGE Usage:bbuild
+# print a red error message to stderr
+#
+# unlike out:fail, does not cause script exit
+###/doc
+function out:error {
+	echo -e "${CBRED}ERROR: ${CRED}$*$CDEF" 1>&2
 }
 
 ### out:dump Usage:bbuild
@@ -131,14 +197,14 @@ function out:dump {
 #
 # Add break points to a script
 #
-# Requires debug mode set to true
+# Requires MODE_DEBUG set to true
 #
 # When the script runs, the message is printed with a propmt, and execution pauses.
 #
+# Press return to continue execution.
+#
 # Type `exit`, `quit` or `stop` to stop the program. If the breakpoint is in a subshell,
 #  execution from after the subshell will be resumed.
-#
-# Press return to continue execution.
 #
 ###/doc
 
@@ -151,7 +217,9 @@ function out:break {
 	fi
 }
 
-[[ "$MODE_DEBUG_VERBOSE" = true ]] && set -x || :
+if [[ "$MODE_DEBUG_VERBOSE" = true ]]; then
+	set -x
+fi
 #!/bin/bash
 
 ### Useful patterns Usage:bbuild
@@ -186,6 +254,11 @@ export PAT_email="$PAT_filename@$PAT_filename.$PAT_cvar"
 ### args:get TOKEN ARGS ... Usage:bbuild
 #
 # Given a TOKEN, find the argument value
+#
+# Typically called with the parent's arguments
+#
+# 	args:get --key "$@"
+# 	args:get -k "$@"
 #
 # If TOKEN is an int, returns the argument at that index (starts at 1, negative numbers count from end backwards)
 #
@@ -254,6 +327,10 @@ function args:get_long {
 ### args:has TOKEN ARGS ... Usage:bbuild
 #
 # Determines whether TOKEN is present on its own in ARGS
+#
+# Typically called with the parent's arguments
+#
+# 	args:has thing "$@"
 #
 # Returns 0 on success for example
 #
@@ -467,10 +544,10 @@ function log:dump {
 }
 #!/bin/bash
 
-### autohelp:print Usage:bbuild
+### autohelp:print [ SECTION [FILE] ] Usage:bbuild
 # Write your help as documentation comments in your script
 #
-# If you need to output the help from a running script, call the
+# If you need to output the help from your script, or a file, call the
 # `autohelp:print` function and it will print the help documentation
 # in the current script to stdout
 #
@@ -485,14 +562,19 @@ function log:dump {
 #	#
 #	###/doc
 #
+# You can set a different help section by specifying a subsection
+#
+# 	autohelp:print section2
+#
+# > This would print a section defined in this way:
+#
+# 	### Some title Usage:section2
+# 	# <some content>
+# 	###/doc
+#
 # You can set a different comment character by setting the 'HELPCHAR' environment variable:
 #
 # 	HELPCHAR=%
-# 	autohelp:print
-#
-# You can set a different help section by specifying the 'SECTION_STRING' variable
-#
-# 	SECTION_STRING=subsection autohelp:print
 #
 ###/doc
 
@@ -529,16 +611,48 @@ function autohelp:print {
 	echo ""
 }
 
-### automatic help Usage:main
+### autohelp:paged Usage:bbuild
 #
-# automatically call help if "--help" is detected in arguments
+# Display the help in the pager defined in the PAGER environment variable
 #
 ###/doc
-if [[ "$*" =~ --help ]]; then
-	cols="$(tput cols)"
-	autohelp:print | fold -w "$cols" -s || autohelp:print
-	exit 0
-fi
+function autohelp:paged {
+	: ${PAGER=less}
+	autohelp:print "$@" | $PAGER
+}
+
+### autohelp:check Usage:bbuild
+#
+# Automatically print help and exit if "--help" is detected in arguments
+#
+# Example use:
+#
+#	#!/bin/bash
+#
+#	### Some help Usage:help
+#	#
+#	# Some help text
+#	#
+#	###/doc
+#
+#	#%include autohelp.sh
+#
+#	main() {
+#		autohelp:check "$@"
+#
+#		# now add your code
+#	}
+#
+#	main "$@"
+#
+###/doc
+autohelp:check() {
+	if [[ "$*" =~ --help ]]; then
+		cols="$(tput cols)"
+		autohelp:print | fold -w "$cols" -s || autohelp:print
+		exit 0
+	fi
+}
 ### runmain SCRIPTNAME FUNCTION [ARGUMENTS ...] Usage:bbuild
 #
 # Runs the function FUNCTION with ARGUMENTS, only if the runtime
@@ -592,8 +706,60 @@ util:hasperm() {
 }
 
 util:killconn() {
-	[[ -n "$conn_id" ]] || return
+	[[ -n "${conn_id:-}" ]] || return
 	kill -9 "$conn_id"
+}
+
+util:cleanup() {
+	util:killconn
+	rm .wsh-* 2>/dev/null || :
+}
+#!/bin/bash
+
+### abspath:path RELATIVEPATH [ MAX ] Usage:bbuild
+# Returns the absolute path of a file/directory
+#
+# MAX defines the maximum number of "../" relative items to process
+#   default is 50
+###/doc
+
+function abspath:path {
+	local workpath="$1" ; shift
+	local max="${1:-50}" ; shift
+
+	if [[ "${workpath:0:1}" != "/" ]]; then workpath="$PWD/$workpath"; fi
+
+	workpath="$(abspath:collapse "$workpath")"
+	abspath:resolve_dotdot "$workpath" "$max" | sed -r 's|(.)/$|\1|'
+}
+
+function abspath:collapse {
+	echo "$1" | sed -r 's|/\./|/|g ; s|/\.$|| ; s|/+|/|g'
+}
+
+function abspath:resolve_dotdot {
+	local workpath="$1"; shift
+	local max="$1"; shift
+
+	# Set a limit on how many iterations to perform
+	# Only very obnoxious paths should fail
+	for x in $(seq 1 $max); do
+		# No more dot-dots - good to go
+		if [[ ! "$workpath" =~ /\.\.(/|$) ]]; then
+			echo "$workpath"
+			return 0
+		fi
+
+		# Starts with an up-one at root - unresolvable
+		if [[ "$workpath" =~ ^/\.\.(/|$) ]]; then
+			return 1
+		fi
+
+		workpath="$(echo "$workpath"|sed -r 's@[^/]+/\.\.(/|$)@@')"
+	done
+
+	# A very obnoxious path was used.
+	return 2
 }
 
 conn:listen() {
@@ -612,11 +778,12 @@ conn:respond() {
 	local input
 	local output
 	local target
+	local requested_path
 	input="$1"; shift
 	output="$1"; shift
 	target="$1"; shift
 
-	local requested_path="$(http:get_path "$input")"
+	requested_path="$(http:get_path "$input")"
 
 	out:info "Client asked for: $requested_path"
 
@@ -648,9 +815,10 @@ conn:open() {
 	local output
 	local target
 	local pidfile
-	input="$(mktemp)"
-	output="$(mktemp)"
-	pidfile="$(mktemp)"
+	local requested_path
+	input="$(mktemp .wsh-XXXX)"
+	output="$(mktemp .wsh-XXXX)"
+	pidfile="$(mktemp .wsh-XXXX)"
 
 	conn:listen "$input" "$output" "$pidfile"
 	conn_id="$(cat "$pidfile")"
@@ -664,19 +832,21 @@ conn:open() {
 	out:info "Got a connection !"
 	log:info "Received connection"
 
-	
-
-	local requested_path="$(http:get_path "$input")"
+	requested_path="$(http:get_path "$input")"
 
 	if [[ -n "$requested_path" ]]; then
-		conn:respond "$input" "$output" "$PWD/$requested_path"
+		if ! abspath:path "$requested_path" >/dev/null ; then
+			http:respond "$output" 403 "Forbidden" <(echo "Not permitted")
+		else
+			conn:respond "$input" "$output" "$(abspath:path "$PWD/$requested_path")"
+		fi
 	else
-		out:fail "Could not process the request: $(util:firstline "$input" )"
+		out:error "Could not process the request: $(util:firstline "$input" )"
 		http:respond "$output" 400 "Unknown" <(echo "We cannot handle this request.")
 	fi
 
+	util:killconn || :
 	rm "$input" "$output" "$pidfile"
-	kill -9 "$conn_id"
 }
 
 http:respond() {
@@ -713,10 +883,14 @@ parse_arguments() {
 	if args:has --debug "$@"; then
 		MODE_DEBUG=true
 	fi
+
+	if args:has --verbose "$@"; then
+		set -x
+	fi
 }
 
 main() {
-	trap util:killconn EXIT
+	trap util:cleanup EXIT
 
 	parse_arguments "$@" || out:fail "Could not start web server - error in arguments parsing"
 

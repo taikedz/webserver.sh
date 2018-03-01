@@ -1,3 +1,4 @@
+#%include abspath.sh out.sh log.sh
 
 conn:listen() {
 	local input
@@ -15,11 +16,12 @@ conn:respond() {
 	local input
 	local output
 	local target
+	local requested_path
 	input="$1"; shift
 	output="$1"; shift
 	target="$1"; shift
 
-	local requested_path="$(http:get_path "$input")"
+	requested_path="$(http:get_path "$input")"
 
 	out:info "Client asked for: $requested_path"
 
@@ -51,9 +53,10 @@ conn:open() {
 	local output
 	local target
 	local pidfile
-	input="$(mktemp)"
-	output="$(mktemp)"
-	pidfile="$(mktemp)"
+	local requested_path
+	input="$(mktemp .wsh-XXXX)"
+	output="$(mktemp .wsh-XXXX)"
+	pidfile="$(mktemp .wsh-XXXX)"
 
 	conn:listen "$input" "$output" "$pidfile"
 	conn_id="$(cat "$pidfile")"
@@ -67,17 +70,19 @@ conn:open() {
 	out:info "Got a connection !"
 	log:info "Received connection"
 
-	
-
-	local requested_path="$(http:get_path "$input")"
+	requested_path="$(http:get_path "$input")"
 
 	if [[ -n "$requested_path" ]]; then
-		conn:respond "$input" "$output" "$PWD/$requested_path"
+		if ! abspath:path "$requested_path" >/dev/null ; then
+			http:respond "$output" 403 "Forbidden" <(echo "Not permitted")
+		else
+			conn:respond "$input" "$output" "$(abspath:path "$PWD/$requested_path")"
+		fi
 	else
-		out:fail "Could not process the request: $(util:firstline "$input" )"
+		out:error "Could not process the request: $(util:firstline "$input" )"
 		http:respond "$output" 400 "Unknown" <(echo "We cannot handle this request.")
 	fi
 
+	util:killconn || :
 	rm "$input" "$output" "$pidfile"
-	kill -9 "$conn_id"
 }

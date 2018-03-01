@@ -42,10 +42,14 @@ parse_arguments() {
 	if args:has --debug "$@"; then
 		MODE_DEBUG=true
 	fi
+
+	if args:has --verbose "$@"; then
+		set -x
+	fi
 }
 
 main() {
-	trap util:killconn EXIT
+	trap util:cleanup EXIT
 
 	parse_arguments "$@" || out:fail "Could not start web server - error in arguments parsing"
 

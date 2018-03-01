@@ -12,6 +12,11 @@ util:hasperm() {
 }
 
 util:killconn() {
-	[[ -n "$conn_id" ]] || return
+	[[ -n "${conn_id:-}" ]] || return
 	kill -9 "$conn_id"
+}
+
+util:cleanup() {
+	util:killconn
+	rm .wsh-* 2>/dev/null || :
 }
