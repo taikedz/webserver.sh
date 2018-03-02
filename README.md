@@ -6,7 +6,7 @@ BECAUSE WHY NOT.
 
 ## What is this
 
-This is a a series of examples of bash scripting to make a web server using little more than bash, the GNU tools, and`*Hobbit*`'s` `nc` (`netcat-traditional`)... and Bash Builder for the advanced example.
+This is a a series of examples of bash scripting to make a web server using little more than bash, the GNU tools, and`*Hobbit*`'s `nc` (`netcat-traditional`)... and Bash Builder for the advanced example.
 
 There are three executable versions:
 
