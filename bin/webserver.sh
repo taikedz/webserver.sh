@@ -692,6 +692,17 @@ set -euo pipefail
 WEBSH_default_port=8080
 WEBSH_default_logfile="./webserver-sh.log"
 
+util:content_type() {
+	local f="$1"; shift
+	local x="$(file "$f" --mime-type)"
+	echo "${x#$f: }"
+}
+
+util:mktemp() {
+	local tfile="$(mktemp "$@")"
+	chmod 600 "$tfile"
+	echo "$tfile"
+}
 
 util:haslines() {
 	[[ "$(grep -Pc ^ "$1")" -gt 0 ]]
@@ -706,8 +717,8 @@ util:hasperm() {
 }
 
 util:killconn() {
-	[[ -n "${conn_id:-}" ]] || return
-	kill -9 "$conn_id"
+	[[ -n "${WEBSH_connid:-}" ]] || return
+	kill -9 "$WEBSH_connid"
 }
 
 util:cleanup() {
@@ -763,29 +774,20 @@ function abspath:resolve_dotdot {
 }
 
 conn:listen() {
-	local input
-	local output
-	local pidfile
-	input="$1"; shift
-	output="$1"; shift
-	pidfile="$1"; shift
+	local input="$1"; shift
+	local output="$1"; shift
 
 	tail -f "$output" | nc -l "$webport" > "$input" &
-	echo "$!" > "$pidfile"
+	WEBSH_connid="$!"
 }
 
 conn:respond() {
-	local input
-	local output
-	local target
-	local requested_path
-	input="$1"; shift
-	output="$1"; shift
-	target="$1"; shift
+	local input="$1"; shift
+	local output="$1"; shift
+	local target="$(http:unescape_path "$1")"; shift
+	local requested_path="$(http:get_path "$input")"
 
-	requested_path="$(http:get_path "$input")"
-
-	out:info "Client asked for: $requested_path"
+	out:info "Client asked for: $requested_path -> $target"
 
 	if [[ -e "$target" ]] && ! util:hasperm "$target"; then
 		log:warn "Permission denied: $requested_path"
@@ -793,7 +795,7 @@ conn:respond() {
 
 	elif [[ ! -e "$target" ]]; then
 		log:warn "Could not find: $requested_path"
-		http:respond "$output" 404 "Not found" <(echo "File not found !")
+		http:respond "$output" 404 "Not found" <(echo "<html><body><h1>File not found</h1> $requested_path --> $target !</body></html>")
 
 	elif [[ -f "$target" ]]; then
 		log:info "Serving $requested_path"
@@ -811,19 +813,13 @@ conn:respond() {
 }
 
 conn:open() {
-	local input
-	local output
-	local target
-	local pidfile
-	local requested_path
-	input="$(mktemp .wsh-XXXX)"
-	output="$(mktemp .wsh-XXXX)"
-	pidfile="$(mktemp .wsh-XXXX)"
+	local input="$(util:mktemp .wsh-XXXX)"
+	local output="$(util:mktemp .wsh-XXXX)"
+	WEBSH_connid=""
 
-	conn:listen "$input" "$output" "$pidfile"
-	conn_id="$(cat "$pidfile")"
+	conn:listen "$input" "$output"
 
-	out:debug "Listening process: $conn_id"
+	out:debug "Listening process: $WEBSH_connid"
 
 	while ! util:haslines "$input"; do
 		sleep 2
@@ -832,7 +828,7 @@ conn:open() {
 	out:info "Got a connection !"
 	log:info "Received connection"
 
-	requested_path="$(http:get_path "$input")"
+	local requested_path="$(http:get_path "$input")"
 
 	if [[ -n "$requested_path" ]]; then
 		if ! abspath:path "$requested_path" >/dev/null ; then
@@ -846,19 +842,33 @@ conn:open() {
 	fi
 
 	util:killconn || :
-	rm "$input" "$output" "$pidfile"
+	rm "$input" "$output"
 }
 
 http:respond() {
-	local output
-	local code_message
-	local target
-	output="$1"; shift
-	code_message="$1 $2"; shift; shift
-	target="$1"; shift
+	local output="$1"; shift
+	local code_message="$1 $2"; shift 2
+	local target="$1"; shift
 
-	echo -e "HTTP/1.1 $code_message\r\nContent-Type: text/plain\r\nContent-Length: $(stat --printf="%s" "$target")\r\n\r\n" >> "$output"
+	# Handle a temporary file descriptor
+	if [[ "$target" =~ ^/dev/fd/ ]]; then
+		local temptarget="$(util:mktemp .wsh-XXXX)"
+		cat "$target" > "$temptarget"
+		target="$temptarget"
+		ctype="text/plain"
+	fi
+	
+	# These operations try to read the file, so we do it
+	#   AFTER we've checked for file description
+	local ctype="$(util:content_type "$target")"
+	local clength="$(stat --printf="%s" "$target")"
+
+	echo -e -n "HTTP/1.1 $code_message\r\nContent-Type: $ctype\r\nContent-Length: $clength\r\n\r\n" >> "$output"
 	cat "$target" >> "$output"
+
+	if [[ -n "${temptarget:-}" ]]; then
+		rm "$temptarget"
+	fi
 }
 
 http:get_path() {
@@ -867,6 +877,21 @@ http:get_path() {
 	echo "${BASH_REMATCH[1]:-}"
 }
 
+http:unescape_path() {
+	local path="$1"; shift
+
+	local code="$(http:find_code "$path")"
+	while [[ -n "$code" ]]; do
+		out:debug "Find code $code"
+		path="$(echo "$path" | sed "s|$code|$(echo "$code"|xxd -r -p)|g")"
+		code="$(http:find_code "$path")"
+	done
+	echo "$path"
+}
+
+http:find_code() {
+	echo "$1" | grep -Po "%.."|head -n 1 || :
+}
 
 parse_arguments() {
 	if args:has --help "$@" ; then

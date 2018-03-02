@@ -1,29 +1,20 @@
 #%include abspath.sh out.sh log.sh
 
 conn:listen() {
-	local input
-	local output
-	local pidfile
-	input="$1"; shift
-	output="$1"; shift
-	pidfile="$1"; shift
+	local input="$1"; shift
+	local output="$1"; shift
 
 	tail -f "$output" | nc -l "$webport" > "$input" &
-	echo "$!" > "$pidfile"
+	WEBSH_connid="$!"
 }
 
 conn:respond() {
-	local input
-	local output
-	local target
-	local requested_path
-	input="$1"; shift
-	output="$1"; shift
-	target="$1"; shift
+	local input="$1"; shift
+	local output="$1"; shift
+	local target="$(http:unescape_path "$1")"; shift
+	local requested_path="$(http:get_path "$input")"
 
-	requested_path="$(http:get_path "$input")"
-
-	out:info "Client asked for: $requested_path"
+	out:info "Client asked for: $requested_path -> $target"
 
 	if [[ -e "$target" ]] && ! util:hasperm "$target"; then
 		log:warn "Permission denied: $requested_path"
@@ -31,7 +22,7 @@ conn:respond() {
 
 	elif [[ ! -e "$target" ]]; then
 		log:warn "Could not find: $requested_path"
-		http:respond "$output" 404 "Not found" <(echo "File not found !")
+		http:respond "$output" 404 "Not found" <(echo "<html><body><h1>File not found</h1> $requested_path --> $target !</body></html>")
 
 	elif [[ -f "$target" ]]; then
 		log:info "Serving $requested_path"
@@ -49,19 +40,13 @@ conn:respond() {
 }
 
 conn:open() {
-	local input
-	local output
-	local target
-	local pidfile
-	local requested_path
-	input="$(mktemp .wsh-XXXX)"
-	output="$(mktemp .wsh-XXXX)"
-	pidfile="$(mktemp .wsh-XXXX)"
+	local input="$(util:mktemp .wsh-XXXX)"
+	local output="$(util:mktemp .wsh-XXXX)"
+	WEBSH_connid=""
 
-	conn:listen "$input" "$output" "$pidfile"
-	conn_id="$(cat "$pidfile")"
+	conn:listen "$input" "$output"
 
-	out:debug "Listening process: $conn_id"
+	out:debug "Listening process: $WEBSH_connid"
 
 	while ! util:haslines "$input"; do
 		sleep 2
@@ -70,7 +55,7 @@ conn:open() {
 	out:info "Got a connection !"
 	log:info "Received connection"
 
-	requested_path="$(http:get_path "$input")"
+	local requested_path="$(http:get_path "$input")"
 
 	if [[ -n "$requested_path" ]]; then
 		if ! abspath:path "$requested_path" >/dev/null ; then
@@ -84,5 +69,5 @@ conn:open() {
 	fi
 
 	util:killconn || :
-	rm "$input" "$output" "$pidfile"
+	rm "$input" "$output"
 }
