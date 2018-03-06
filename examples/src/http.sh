@@ -13,7 +13,7 @@ http:respond() {
 	fi
 	
 	# These operations try to read the file, so we do it
-	#   AFTER we've checked for file description
+	#   AFTER we've checked for file descriptor
 	local ctype="$(util:content_type "$target")"
 	local clength="$(stat --printf="%s" "$target")"
 

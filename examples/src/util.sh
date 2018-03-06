@@ -4,6 +4,13 @@ util:content_type() {
 	echo "${x#$f: }"
 }
 
+util:pid_for() {
+	local procname="$1"; shift
+	local procport="$1"; shift
+
+	ss -tunlp | grep -oP "LISTEN.+?\*:$procport\s.+?users:\(\(\"$procname\",pid=[0-9]+" | sed -r 's/.+?=([0-9]+)$/\1/'
+}
+
 util:mktemp() {
 	local tfile="$(mktemp "$@")"
 	chmod 600 "$tfile"
@@ -24,7 +31,7 @@ util:hasperm() {
 
 util:killconn() {
 	[[ -n "${WEBSH_connid:-}" ]] || return
-	kill -9 "$WEBSH_connid"
+	kill "$WEBSH_connid"
 }
 
 util:cleanup() {

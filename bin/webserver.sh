@@ -102,6 +102,25 @@ function out:debug {
 	fi
 }
 
+### out:debug:fork [MARKER] Usage:bbuild
+#
+# Pipe the data coming through stdin to stdout
+#
+# If debug mode is on, *also* write the same data to stderr, each line preceded by MARKER
+#
+# Insert this debug fork into pipes to see their output
+#
+###/doc
+function out:debug:fork {
+	if [[ "$MODE_DEBUG" = true ]]; then
+		local MARKER="${1:-DEBUG: }"; shift || :
+
+		cat - | sed -r "s/^/$MARKER/" | tee -a /dev/stderr
+	else
+		cat -
+	fi
+}
+
 ### out:info MESSAGE Usage:bbuild
 # print a green informational message to stderr
 ###/doc
@@ -389,6 +408,17 @@ function args:after {
 #
 # By default, writes to <stderr>
 #
+# Precedes all messages with the name of the script
+#
+# If you specify a log file with log:use_cwd or log:use_file then the log info
+#  is written to the appropriate file, and not to stderr
+#
+# Example usage:
+#
+# 	log:use_file activity.log
+#
+# 	log:info "This is an info message"
+#
 ###/doc
 
 BBLOGFILE=/dev/stderr
@@ -396,7 +426,9 @@ LOGENTITY=$(basename "$0")
 
 ### LOG_LEVEL Usage:bbuild
 #
-# Log level environment variable. Set it to one of the predefined values:
+# Log level environment variable, by default set to WARN level.
+#
+# Set it to one of the predefined values:
 #
 # $LOG_LEVEL_FAIL - failures only
 # $LOG_LEVEL_WARN - failures and warnings
@@ -405,17 +437,17 @@ LOGENTITY=$(basename "$0")
 #
 # Example:
 #
-# 	export LOG_LEVEL=$LOG_LEVEL_WARN
+# 	export LOG_LEVEL=$LOG_LEVEL_INFO
 # 	command ...
 #
 ###/doc
 
-LOG_LEVEL=0
+LOG_LEVEL=1
 
 LOG_LEVEL_FAIL=0
-LOG_LEVEL_WARN=0
-LOG_LEVEL_INFO=0
-LOG_LEVEL_DEBUG=0
+LOG_LEVEL_WARN=1
+LOG_LEVEL_INFO=2
+LOG_LEVEL_DEBUG=3
 
 # Handily determine that the minimal level threshold is met
 function log:islevel {
@@ -427,19 +459,22 @@ function log:islevel {
 ### log:use_file LOGFILE Usage:bbuild
 # Set the specified file as log file.
 #
-# If this fails, log is sent to stderr
+# If this fails, log is sent to stderr and code 1 is returned
 ###/doc
 function log:use_file {
 	local target_file="$1"; shift
 	local standard_outputs="/dev/(stdout|stderr)"
+	local res=0
+
 	if [[ ! "$target_file" =~ $standard_outputs ]]; then
 
 		echo "$LOGENTITY $(date +"%F %T") Selecting log file" >> "$target_file" || {
+			res=1
 			local msg="Could not set the log file to [$target_file] ; moving to stderr"
 
 			if [[ "$BBLOGFILE" != /dev/stderr ]]; then
 				# leave a trace of this in the last log file
-				log:warn "$msg"
+				log:warn "$msg" || :
 			fi
 
 			export BBLOGFILE=/dev/stderr
@@ -447,28 +482,39 @@ function log:use_file {
 		}
 	fi
 	export BBLOGFILE="$target_file"
+	return $res
 }
 
 ### log:use_cwd Usage:bbuild
-# Create a log file in the curent working directory
+# Create a log file in the current working directory, using the current script's name
+#  as a base for the log file's name
+#
+# If could not log in a local file, falls back to stderr and returns code 1
 ###/doc
 function log:use_cwd {
 	log:use_file "$PWD/$LOGENTITY.log"
+	return "$?"
 }
 
 ### log:use_var Usage:bbuild
-# Set the log location to /var/log/$SCRIPTNAME/...
+# Set the log location to /var/log/<SCRIPTNAME>/...
 #
 # prints the log file in use to stderr
+#
+# If /var/log location cannot be accessed, tries to log to current directory
+#
+# If current location cannot be logged to, writes to stderr
+#
+# Returns code 1 if location in /var/log could not be used
 ###/doc
 function log:use_var {
 	local logdir="/var/log/$LOGENTITY"
 	local logfile="$(whoami)-$UID-$HOSTNAME.log"
 	local tgtlog="$logdir/$logfile"
 
-	mkdir -p "$(dirname "$tgtlog")" && touch "$tgtlog" || {
-		log:use_file "/dev/stderr"
-		out:warn "Could not create [$logfile] in [$logdir] - logging to stderr"
+	(mkdir -p "$logdir" && touch "$tgtlog") || {
+		out:warn "Could not create [$logfile] in [$logdir] - logging locally"
+		log:use_cwd
 		return 1
 	}
 
@@ -486,11 +532,31 @@ function log:debug {
 	fi
 }
 
+### log:debug:fork [MARKER] Usage:bbuild
+#
+# Pipe the data coming through stdin to stdout
+#
+# *Also* write the same data to the log when at debug level, each line preceded by MARKER
+#
+# Insert this debug fork into pipes to record their output
+#
+###/doc
+function log:debug:fork {
+	if log:islevel "$LOG_LEVEL_DEBUG"; then
+		local MARKER="${1:-PIPEDUMP}"; shift || :
+		MARKER="$(date "+%F %T") $MARKER :"
+
+		cat - | sed -r "s/^/$MARKER/" | tee -a "$BBLOGFILE"
+	else
+		cat -
+	fi
+}
+
 ### log:info MESSAGE Usage:bbuild
 # print an informational message to the log
 ###/doc
 function log:info {
-	log:islevel "$LOG_LEVEL_INFO" || return
+	log:islevel "$LOG_LEVEL_INFO" || return 0
 
 	echo -e "$LOGENTITY $(date "+%F %T") INFO: $*" >>"$BBLOGFILE"
 }
@@ -499,30 +565,18 @@ function log:info {
 # print a warning message to the log
 ###/doc
 function log:warn {
-	log:islevel "$LOG_LEVEL_WARN" || return
+	log:islevel "$LOG_LEVEL_WARN" || return 0
 
 	echo -e "$LOGENTITY $(date "+%F %T") WARN: $*" >>"$BBLOGFILE"
 }
 
 ### log:fail [CODE] MESSAGE Usage:bbuild
-# print a failure message to the log, and exit with CODE
-# CODE must be a number
-# if no code is specified, error code 127 is used
+# print a failure-level message to the log
 ###/doc
 function log:fail {
-	log:islevel "$LOG_LEVEL_FAIL" || return
+	log:islevel "$LOG_LEVEL_FAIL" || return 0
 
-	local MSG=
-	local ARG=
-	local ERCODE=127
-	local numpat='^[0-9]+$'
-
-	if [[ "${1:-}" =~ $numpat ]]; then
-		ERCODE="$1"
-		shift
-	fi
-
-	echo "$LOGENTITY $(date "+%F %T") ERROR FAIL: $*" >>"$BBLOGFILE"
+	echo "$LOGENTITY $(date "+%F %T") FAIL: $*" >>"$BBLOGFILE"
 }
 
 ### log:dump Usage:bbuild
@@ -698,6 +752,13 @@ util:content_type() {
 	echo "${x#$f: }"
 }
 
+util:pid_for() {
+	local procname="$1"; shift
+	local procport="$1"; shift
+
+	ss -tunlp | grep -oP "LISTEN.+?\*:$procport\s.+?users:\(\(\"$procname\",pid=[0-9]+" | sed -r 's/.+?=([0-9]+)$/\1/'
+}
+
 util:mktemp() {
 	local tfile="$(mktemp "$@")"
 	chmod 600 "$tfile"
@@ -718,7 +779,7 @@ util:hasperm() {
 
 util:killconn() {
 	[[ -n "${WEBSH_connid:-}" ]] || return
-	kill -9 "$WEBSH_connid"
+	kill "$WEBSH_connid"
 }
 
 util:cleanup() {
@@ -777,8 +838,22 @@ conn:listen() {
 	local input="$1"; shift
 	local output="$1"; shift
 
-	tail -f "$output" | nc -l "$webport" > "$input" &
-	WEBSH_connid="$!"
+	tail -f "$output" | nc -l "$webport" | conn:dump_guard > "$input" &
+
+	WEBSH_connid="$(util:pid_for nc "$webport")"
+}
+
+conn:dump_guard() {
+	local in_payload=false
+
+	while read; do
+		if [[ "$in_payload" = true ]] || [[ "$REPLY" =~ ^\s*$ ]]; then
+			in_payload=true
+			continue
+		fi
+
+		echo "$REPLY"
+	done
 }
 
 conn:respond() {
@@ -809,7 +884,6 @@ conn:respond() {
 		log:warn "Unknown request"
 		http:respond "$output" 500 Error <(echo "Unknown error ...!")
 	fi
-
 }
 
 conn:open() {
@@ -859,7 +933,7 @@ http:respond() {
 	fi
 	
 	# These operations try to read the file, so we do it
-	#   AFTER we've checked for file description
+	#   AFTER we've checked for file descriptor
 	local ctype="$(util:content_type "$target")"
 	local clength="$(stat --printf="%s" "$target")"
 
@@ -909,7 +983,7 @@ parse_arguments() {
 		MODE_DEBUG=true
 	fi
 
-	if args:has --verbose "$@"; then
+	if args:has --trace "$@"; then
 		set -x
 	fi
 }

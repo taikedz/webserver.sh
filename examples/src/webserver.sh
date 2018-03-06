@@ -43,7 +43,7 @@ parse_arguments() {
 		MODE_DEBUG=true
 	fi
 
-	if args:has --verbose "$@"; then
+	if args:has --trace "$@"; then
 		set -x
 	fi
 }

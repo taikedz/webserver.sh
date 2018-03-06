@@ -4,8 +4,22 @@ conn:listen() {
 	local input="$1"; shift
 	local output="$1"; shift
 
-	tail -f "$output" | nc -l "$webport" > "$input" &
-	WEBSH_connid="$!"
+	tail -f "$output" | nc -l "$webport" | conn:dump_guard > "$input" &
+
+	WEBSH_connid="$(util:pid_for nc "$webport")"
+}
+
+conn:dump_guard() {
+	local in_payload=false
+
+	while read; do
+		if [[ "$in_payload" = true ]] || [[ "$REPLY" =~ ^\s*$ ]]; then
+			in_payload=true
+			continue
+		fi
+
+		echo "$REPLY"
+	done
 }
 
 conn:respond() {
@@ -36,7 +50,6 @@ conn:respond() {
 		log:warn "Unknown request"
 		http:respond "$output" 500 Error <(echo "Unknown error ...!")
 	fi
-
 }
 
 conn:open() {
