@@ -18,7 +18,7 @@
 #
 ###/doc
 
-#%include out.sh args.sh log.sh autohelp.sh runmain.sh
+#%include out.sh debug.sh args.sh log.sh autohelp.sh runmain.sh
 
 set -euo pipefail
 

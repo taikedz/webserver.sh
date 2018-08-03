@@ -36,7 +36,7 @@ http:unescape_path() {
 
 	local code="$(http:find_code "$path")"
 	while [[ -n "$code" ]]; do
-		out:debug "Find code $code"
+		debug:print "Find code $code"
 		path="$(echo "$path" | sed "s|$code|$(echo "$code"|xxd -r -p)|g")"
 		code="$(http:find_code "$path")"
 	done

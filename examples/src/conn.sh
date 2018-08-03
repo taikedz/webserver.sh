@@ -1,21 +1,18 @@
-#%include abspath.sh out.sh log.sh
+#%include abspath.sh out.sh log.sh userfunction.sh
 
 conn:listen() {
 	local input="$1"; shift
 	local output="$1"; shift
 
-	tail -f "$output" | nc -l "$webport" | conn:dump_guard > "$input" &
+	tail -f "$output" | nc -l "$webport" | conn:dump_headers_only > "$input" &
 
 	WEBSH_connid="$(util:pid_for nc "$webport")"
 }
 
-conn:dump_guard() {
-	local in_payload=false
-
+conn:dump_headers_only() {
 	while read; do
-		if [[ "$in_payload" = true ]] || [[ "$REPLY" =~ ^\s*$ ]]; then
-			in_payload=true
-			continue
+		if [[ "$REPLY" =~ ^\s*$ ]]; then
+			break
 		fi
 
 		echo "$REPLY"
@@ -30,7 +27,12 @@ conn:respond() {
 
 	out:info "Client asked for: $requested_path -> $target"
 
-	if [[ -e "$target" ]] && ! util:hasperm "$target"; then
+	if [[ "$requested_path" =~ ^/~[a-zA-Z0-9]+$ ]]; then
+        log:info "Called function ${requested_path:2}"
+        out:info "Called function ${requested_path:2}"
+        userfunction:run "$output" "${requested_path:2}"
+
+    elif [[ -e "$target" ]] && ! util:hasperm "$target"; then
 		log:warn "Permission denied: $requested_path"
 		http:respond "$output" 403 "Forbidden" <(echo "You do not have permission to access this file.")
 
@@ -59,7 +61,7 @@ conn:open() {
 
 	conn:listen "$input" "$output"
 
-	out:debug "Listening process: $WEBSH_connid"
+	debug:print "Listening process: $WEBSH_connid"
 
 	while ! util:haslines "$input"; do
 		sleep 2

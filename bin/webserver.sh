@@ -18,16 +18,16 @@
 #
 ###/doc
 
-#!/bin/bash
+##bash-libs: out.sh @ 266ad599 (after 1.1.4)
 
-#!/bin/bash
+##bash-libs: colours.sh @ 266ad599 (after 1.1.4)
 
 ### Colours for bash Usage:bbuild
 # A series of colour flags for use in outputs.
 #
 # Example:
 # 	
-# 	echo -e "${CRED}Some red text ${CBBLU} some blue text $CDEF some text in the terminal's default colour"
+# 	echo -e "${CRED}Some red text ${CBBLU} some blue text $CDEF some text in the terminal's default colour")
 #
 # Requires processing of escape characters.
 #
@@ -45,30 +45,104 @@
 #
 # Note that highlight and underline must be applied or re-applied after specifying a colour.
 #
+# If the session is detected as being in a pipe, colours will be turned off.
+#   You can override this by calling `colours:check --color=always` at the start of your script
+#
 ###/doc
 
-export CRED="\033[0;31m"
-export CGRN="\033[0;32m"
-export CYEL="\033[0;33m"
-export CBLU="\033[0;34m"
-export CPUR="\033[0;35m"
-export CTEA="\033[0;36m"
+##bash-libs: tty.sh @ 266ad599 (after 1.1.4)
 
-export CBRED="\033[1;31m"
-export CBGRN="\033[1;32m"
-export CBYEL="\033[1;33m"
-export CBBLU="\033[1;34m"
-export CBPUR="\033[1;35m"
-export CBTEA="\033[1;36m"
+tty:is_ssh() {
+    [[ -n "$SSH_TTY" ]] || [[ -n "$SSH_CLIENT" ]] || [[ "$SSH_CONNECTION" ]]
+}
 
-export HLRED="\033[41m"
-export HLGRN="\033[42m"
-export HLYEL="\033[43m"
-export HLBLU="\033[44m"
-export HLPUR="\033[45m"
-export HLTEA="\033[46m"
+tty:is_pipe() {
+    [[ ! -t 1 ]]
+}
 
-export CDEF="\033[0m"
+### colours:check ARGS Usage:bbuild
+#
+# Check the args to see if there's a `--color=always` or `--color=never`
+#   and reload the colours appropriately
+#
+###/doc
+colours:check() {
+    if [[ "$*" =~ --color=always ]]; then
+        COLOURS_ON=true
+    elif [[ "$*" =~ --color=never ]]; then
+        COLOURS_ON=false
+    fi
+
+    colours:define
+    return 0
+}
+
+colours:auto() {
+    if tty:is_pipe ; then
+        COLOURS_ON=false
+    else
+        COLOURS_ON=true
+    fi
+
+    colours:define
+    return 0
+}
+
+colours:define() {
+    if [[ "$COLOURS_ON" = false ]]; then
+
+        export CRED=''
+        export CGRN=''
+        export CYEL=''
+        export CBLU=''
+        export CPUR=''
+        export CTEA=''
+
+        export CBRED=''
+        export CBGRN=''
+        export CBYEL=''
+        export CBBLU=''
+        export CBPUR=''
+        export CBTEA=''
+
+        export HLRED=''
+        export HLGRN=''
+        export HLYEL=''
+        export HLBLU=''
+        export HLPUR=''
+        export HLTEA=''
+
+        export CDEF=''
+
+    else
+
+        export CRED=$(echo -e "\033[0;31m")
+        export CGRN=$(echo -e "\033[0;32m")
+        export CYEL=$(echo -e "\033[0;33m")
+        export CBLU=$(echo -e "\033[0;34m")
+        export CPUR=$(echo -e "\033[0;35m")
+        export CTEA=$(echo -e "\033[0;36m")
+
+        export CBRED=$(echo -e "\033[1;31m")
+        export CBGRN=$(echo -e "\033[1;32m")
+        export CBYEL=$(echo -e "\033[1;33m")
+        export CBBLU=$(echo -e "\033[1;34m")
+        export CBPUR=$(echo -e "\033[1;35m")
+        export CBTEA=$(echo -e "\033[1;36m")
+
+        export HLRED=$(echo -e "\033[41m")
+        export HLGRN=$(echo -e "\033[42m")
+        export HLYEL=$(echo -e "\033[43m")
+        export HLBLU=$(echo -e "\033[44m")
+        export HLPUR=$(echo -e "\033[45m")
+        export HLTEA=$(echo -e "\033[46m")
+
+        export CDEF=$(echo -e "\033[0m")
+
+    fi
+}
+
+colours:auto
 
 ### Console output handlers Usage:bbuild
 #
@@ -76,71 +150,32 @@ export CDEF="\033[0m"
 #
 ###/doc
 
-### Environment Variables Usage:bbuild
-#
-# MODE_DEBUG : set to 'true' to enable debugging output
-# MODE_DEBUG_VERBOSE : set to 'true' to enable command echoing
-#
-###/doc
-
-: ${MODE_DEBUG=false}
-: ${MODE_DEBUG_VERBOSE=false}
-
-# Internal
-function out:buffer_initialize {
-	OUTPUT_BUFFER_defer=(:)
-}
-out:buffer_initialize
-
-### out:debug MESSAGE Usage:bbuild
-# print a blue debug message to stderr
-# only prints if MODE_DEBUG is set to "true"
-###/doc
-function out:debug {
-	if [[ "$MODE_DEBUG" = true ]]; then
-		echo -e "${CBBLU}DEBUG: $CBLU$*$CDEF" 1>&2
-	fi
-}
-
-### out:debug:fork [MARKER] Usage:bbuild
-#
-# Pipe the data coming through stdin to stdout
-#
-# If debug mode is on, *also* write the same data to stderr, each line preceded by MARKER
-#
-# Insert this debug fork into pipes to see their output
-#
-###/doc
-function out:debug:fork {
-	if [[ "$MODE_DEBUG" = true ]]; then
-		local MARKER="${1:-DEBUG: }"; shift || :
-
-		cat - | sed -r "s/^/$MARKER/" | tee -a /dev/stderr
-	else
-		cat -
-	fi
-}
-
 ### out:info MESSAGE Usage:bbuild
 # print a green informational message to stderr
 ###/doc
 function out:info {
-	echo -e "$CGRN$*$CDEF" 1>&2
+    echo "$CGRN$*$CDEF" 1>&2
 }
 
 ### out:warn MESSAGE Usage:bbuild
 # print a yellow warning message to stderr
 ###/doc
 function out:warn {
-	echo -e "${CBYEL}WARN: $CYEL$*$CDEF" 1>&2
+    echo "${CBYEL}WARN: $CYEL$*$CDEF" 1>&2
 }
 
 ### out:defer MESSAGE Usage:bbuild
 # Store a message in the output buffer for later use
 ###/doc
 function out:defer {
-	OUTPUT_BUFFER_defer[${#OUTPUT_BUFFER_defer[@]}]="$*"
+    OUTPUT_BUFFER_defer[${#OUTPUT_BUFFER_defer[@]}]="$*"
 }
+
+# Internal
+function out:buffer_initialize {
+    OUTPUT_BUFFER_defer=(:)
+}
+out:buffer_initialize
 
 ### out:flush HANDLER ... Usage:bbuild
 #
@@ -158,15 +193,15 @@ function out:defer {
 #
 ###/doc
 function out:flush {
-	[[ -n "$*" ]] || out:fail "Did not provide a command for buffered output\n\n${OUTPUT_BUFFER_defer[*]}"
+    [[ -n "$*" ]] || out:fail "Did not provide a command for buffered output\n\n${OUTPUT_BUFFER_defer[*]}"
 
-	[[ "${#OUTPUT_BUFFER_defer[@]}" -gt 1 ]] || return
+    [[ "${#OUTPUT_BUFFER_defer[@]}" -gt 1 ]] || return 0
 
-	for buffer_line in "${OUTPUT_BUFFER_defer[@]:1}"; do
-		"$@" "$buffer_line"
-	done
+    for buffer_line in "${OUTPUT_BUFFER_defer[@]:1}"; do
+        "$@" "$buffer_line"
+    done
 
-	out:buffer_initialize
+    out:buffer_initialize
 }
 
 ### out:fail [CODE] MESSAGE Usage:bbuild
@@ -175,15 +210,15 @@ function out:flush {
 # if no code is specified, error code 127 is used
 ###/doc
 function out:fail {
-	local ERCODE=127
-	local numpat='^[0-9]+$'
+    local ERCODE=127
+    local numpat='^[0-9]+$'
 
-	if [[ "$1" =~ $numpat ]]; then
-		ERCODE="$1"; shift
-	fi
+    if [[ "$1" =~ $numpat ]]; then
+        ERCODE="$1"; shift || :
+    fi
 
-	echo -e "${CBRED}ERROR FAIL: $CRED$*$CDEF" 1>&2
-	exit $ERCODE
+    echo "${CBRED}ERROR FAIL: $CRED$*$CDEF" 1>&2
+    exit $ERCODE
 }
 
 ### out:error MESSAGE Usage:bbuild
@@ -192,31 +227,90 @@ function out:fail {
 # unlike out:fail, does not cause script exit
 ###/doc
 function out:error {
-	echo -e "${CBRED}ERROR: ${CRED}$*$CDEF" 1>&2
+    echo "${CBRED}ERROR: ${CRED}$*$CDEF" 1>&2
 }
+#%import colour.sh
 
-### out:dump Usage:bbuild
+### Debug lib Usage:bbuild
 #
-# Dump stdin contents to console stderr. Requires debug mode.
+# Debugging tools and functions.
 #
-# Example
-#
-# 	action_command 2>&1 | out:dump
+# You need to activate debug mode using debug:activate command at the start of your script
+#  (or from whatever point you wish it to activate)
 #
 ###/doc
 
-function out:dump {
-	echo -e -n "${CBPUR}$*" 1>&2
-	echo -e -n "$CPUR" 1>&2
-	cat - 1>&2
-	echo -e -n "$CDEF" 1>&2
+### Environment Variables Usage:bbuild
+#
+# DEBUG_mode : set to 'true' to enable debugging output
+#
+###/doc
+
+: ${DEBUG_mode=false}
+
+### debug:mode [output | /output | verbose | /verbose] ... Usage:bbuild
+#
+# Activate debug output (`output`), or activate command tracing (`verbose`)
+#
+# Deactivate with the corresponding `/output` and `/verbose` options
+#
+###/doc
+
+function debug:mode() {
+    local mode_switch
+    for mode_switch in "$@"; do
+        case "$mode_switch" in
+        output)
+            DEBUG_mode=true ;;
+        /output)
+            DEBUG_mode=false ;;
+        verbose)
+            set -x ;;
+        /verbose)
+            set +x ;;
+        esac
+    done
 }
 
-### out:break MESSAGE Usage:bbuild
+### debug:print MESSAGE Usage:bbuild
+# print a blue debug message to stderr
+# only prints if DEBUG_mode is set to "true"
+###/doc
+function debug:print {
+    [[ "$DEBUG_mode" = true ]] || return 0
+    echo "${CBBLU}DEBUG: $CBLU$*$CDEF" 1>&2
+}
+
+### debug:dump [MARKER] Usage:bbuild
+#
+# Pipe the data coming through stdin to stdout (as if it weren't there at all)
+#
+# If debug mode is on, *also* write the same data to stderr, each line preceded by MARKER
+#
+# Insert this function into pipes to see their output when in debugging mode
+#
+#   sed -r 's/linux|unix/*NIX/gi' myfile.txt | debug:dump | lprint
+#
+# Or use this to mask a command's output unless in debug mode
+#
+#   which binary 2>&1 | debug:dump >/dev/null
+#
+###/doc
+function debug:dump {
+    if [[ "$DEBUG_mode" = true ]]; then
+        local MARKER="${1:-DEBUG: }"; shift || :
+
+        cat - | sed -r "s/^/$MARKER/" | tee -a /dev/stderr
+    else
+        cat -
+    fi
+}
+
+### debug:break MESSAGE Usage:bbuild
 #
 # Add break points to a script
 #
-# Requires MODE_DEBUG set to true
+# Requires `DEBUG_mode` set to true
 #
 # When the script runs, the message is printed with a propmt, and execution pauses.
 #
@@ -227,19 +321,18 @@ function out:dump {
 #
 ###/doc
 
-function out:break {
-	[[ "$MODE_DEBUG" = true ]] || return
+function debug:break {
+    [[ "$DEBUG_mode" = true ]] || return 0
 
-	read -p "${CRED}BREAKPOINT: $* >$CDEF " >&2
-	if [[ "$REPLY" =~ quit|exit|stop ]]; then
-		out:fail "ABORT"
-	fi
+    echo -en "${CRED}BREAKPOINT: $* >$CDEF " >&2
+    read
+    if [[ "$REPLY" =~ quit|exit|stop ]]; then
+        echo "${CBRED}ABORT${CDEF}"
+    fi
 }
+##bash-libs: args.sh @ 266ad599 (after 1.1.4)
 
-if [[ "$MODE_DEBUG_VERBOSE" = true ]]; then
-	set -x
-fi
-#!/bin/bash
+##bash-libs: patterns.sh @ 266ad599 (after 1.1.4)
 
 ### Useful patterns Usage:bbuild
 #
@@ -294,53 +387,53 @@ export PAT_email="$PAT_filename@$PAT_filename.$PAT_cvar"
 ###/doc
 
 function args:get {
-	local seek="$1"; shift
+    local seek="$1"; shift || :
 
-	if [[ "$seek" =~ $PAT_num ]]; then
-		local arguments=("$@")
+    if [[ "$seek" =~ $PAT_num ]]; then
+        local arguments=("$@")
 
-		# Get the index starting at 1
-		local n=$((seek-1))
-		# but do not affect wrap-arounds
-		[[ "$n" -ge 0 ]] || n=$((n+1))
+        # Get the index starting at 1
+        local n=$((seek-1))
+        # but do not affect wrap-arounds
+        [[ "$n" -ge 0 ]] || n=$((n+1))
 
-		echo "${arguments[$n]}"
+        echo "${arguments[$n]}"
 
-	elif [[ "$seek" =~ ^--.+ ]]; then
-		args:get_long "$seek" "$@"
+    elif [[ "$seek" =~ ^--.+ ]]; then
+        args:get_long "$seek" "$@"
 
-	elif [[ "$seek" =~ ^-[a-zA-Z0-9]$ ]]; then
-		args:get_short "$seek" "$@"
+    elif [[ "$seek" =~ ^-[a-zA-Z0-9]$ ]]; then
+        args:get_short "$seek" "$@"
 
-	else
-		return 1
-	fi
+    else
+        return 1
+    fi
 }
 
 function args:get_short {
-	local token="$1"; shift
-	while [[ -n "$*" ]]; do
-		local item="$1"; shift
+    local token="$1"; shift || :
+    while [[ -n "$*" ]]; do
+        local item="$1"; shift || :
 
-		if [[ "$item" = "$token" ]]; then
-			echo "$1"
-			return
-		fi
-	done
-	return 1
+        if [[ "$item" = "$token" ]]; then
+            echo "$1"
+            return 0
+        fi
+    done
+    return 1
 }
 
 function args:get_long {
-	local token="$1"; shift
-	local tokenpat="^$token=(.*)$"
+    local token="$1"; shift || :
+    local tokenpat="^$token=(.*)$"
 
-	for item in "$@"; do
-		if [[ "$item" =~ $tokenpat ]]; then
-			echo "${BASH_REMATCH[1]}"
-			return
-		fi
-	done
-	return 1
+    for item in "$@"; do
+        if [[ "$item" =~ $tokenpat ]]; then
+            echo "${BASH_REMATCH[1]}"
+            return 0
+        fi
+    done
+    return 1
 }
 
 ### args:has TOKEN ARGS ... Usage:bbuild
@@ -364,20 +457,20 @@ function args:get_long {
 ###/doc
 
 function args:has {
-	local token="$1"; shift
-	for item in "$@"; do
-		if [[ "$token" = "$item" ]]; then
-			return 0
-		fi
-	done
-	return 1
+    local token="$1"; shift || :
+    for item in "$@"; do
+        if [[ "$token" = "$item" ]]; then
+            return 0
+        fi
+    done
+    return 1
 }
 
 ### args:after TOKEN ARGS ... Usage:bbuild
 #
 # Return all tokens after TOKEN via the RETARR_ARGSAFTER
 #
-#	myargs=(one two -- three "four and" five)
+#    myargs=(one two -- three "four and" five)
 # 	args:after -- "${myargs[@]}"
 #
 # 	for a in "${RETARR_ARGSAFTER}"; do
@@ -393,16 +486,17 @@ function args:has {
 ###/doc
 
 function args:after {
-	local token="$1"; shift
-	
-	local current_token="$1"; shift
-	while [[ "$#" -gt 0 ]] && [[ "$current_token" != "$token" ]]; do
-		current_token="$1"; shift
-	done
+    local token="$1"; shift || :
+    
+    local current_token="$1"; shift || :
+    while [[ "$#" -gt 0 ]] && [[ "$current_token" != "$token" ]]; do
+        current_token="$1"; shift || :
+    done
 
-	RETARR_ARGSAFTER=("$@")
+    RETARR_ARGSAFTER=("$@")
 }
-#!/bin/bash
+##bash-libs: log.sh @ 266ad599 (after 1.1.4)
+
 
 ### Logging facility Usage:bbuild
 #
@@ -451,9 +545,52 @@ LOG_LEVEL_DEBUG=3
 
 # Handily determine that the minimal level threshold is met
 function log:islevel {
-	local req_level="$1"; shift
+    local req_level="$1"; shift || :
 
-	[[ "$LOG_LEVEL" -ge "$req_level" ]]
+    [[ "$LOG_LEVEL" -ge "$req_level" ]]
+}
+
+### log:get_level ARGS ... Usage:bbuild
+#
+# Pass script arguments and check for log level modifier
+#
+# This function will look for an argument like --log=N or --log={fail|warn|info|debug} and set the level appropriately
+#
+# Retuns non-zero if log level was specified but could not be determined
+#
+# Usage example:
+#
+# 	main() {
+# 		log:get_level "$@" || echo "Invalid log level"
+#
+# 		# ... your code ...
+# 	}
+#
+# 	main "$@"
+#
+###/doc
+
+function log:get_level {
+    local level="$(args:get --log "$@")"
+
+    if [[ -z "$level" ]]; then
+        return 0
+    fi
+
+    case "$level" in
+    0|fail)
+        LOG_LEVEL="$LOG_LEVEL_FAIL" ;;
+    1|warn)
+        LOG_LEVEL="$LOG_LEVEL_WARN" ;;
+    2|info)
+        LOG_LEVEL="$LOG_LEVEL_INFO" ;;
+    3|debug)
+        LOG_LEVEL="$LOG_LEVEL_DEBUG" ;;
+    *)
+        return 1
+    esac
+
+    return 0
 }
 
 ### log:use_file LOGFILE Usage:bbuild
@@ -462,27 +599,27 @@ function log:islevel {
 # If this fails, log is sent to stderr and code 1 is returned
 ###/doc
 function log:use_file {
-	local target_file="$1"; shift
-	local standard_outputs="/dev/(stdout|stderr)"
-	local res=0
+    local target_file="$1"; shift || :
+    local standard_outputs="/dev/(stdout|stderr)"
+    local res=0
 
-	if [[ ! "$target_file" =~ $standard_outputs ]]; then
+    if [[ ! "$target_file" =~ $standard_outputs ]]; then
 
-		echo "$LOGENTITY $(date +"%F %T") Selecting log file" >> "$target_file" || {
-			res=1
-			local msg="Could not set the log file to [$target_file] ; moving to stderr"
+        echo "$LOGENTITY $(date +"%F %T") Selecting log file" >> "$target_file" || {
+            res=1
+            local msg="Could not set the log file to [$target_file] ; moving to stderr"
 
-			if [[ "$BBLOGFILE" != /dev/stderr ]]; then
-				# leave a trace of this in the last log file
-				log:warn "$msg" || :
-			fi
+            if [[ "$BBLOGFILE" != /dev/stderr ]]; then
+                # leave a trace of this in the last log file
+                log:warn "$msg" || :
+            fi
 
-			export BBLOGFILE=/dev/stderr
-			log:warn "$msg"
-		}
-	fi
-	export BBLOGFILE="$target_file"
-	return $res
+            export BBLOGFILE=/dev/stderr
+            log:warn "$msg"
+        }
+    fi
+    export BBLOGFILE="$target_file"
+    return $res
 }
 
 ### log:use_cwd Usage:bbuild
@@ -492,8 +629,8 @@ function log:use_file {
 # If could not log in a local file, falls back to stderr and returns code 1
 ###/doc
 function log:use_cwd {
-	log:use_file "$PWD/$LOGENTITY.log"
-	return "$?"
+    log:use_file "$PWD/$LOGENTITY.log"
+    return "$?"
 }
 
 ### log:use_var Usage:bbuild
@@ -508,28 +645,26 @@ function log:use_cwd {
 # Returns code 1 if location in /var/log could not be used
 ###/doc
 function log:use_var {
-	local logdir="/var/log/$LOGENTITY"
-	local logfile="$(whoami)-$UID-$HOSTNAME.log"
-	local tgtlog="$logdir/$logfile"
+    local logdir="/var/log/$LOGENTITY"
+    local logfile="$(whoami)-$UID-$HOSTNAME.log"
+    local tgtlog="$logdir/$logfile"
 
-	(mkdir -p "$logdir" && touch "$tgtlog") || {
-		out:warn "Could not create [$logfile] in [$logdir] - logging locally"
-		log:use_cwd
-		return 1
-	}
+    (mkdir -p "$logdir" && touch "$tgtlog") || {
+        out:warn "Could not create [$logfile] in [$logdir] - logging locally"
+        log:use_cwd
+        return 1
+    }
 
-	log:use_file "$tgtlog"
+    log:use_file "$tgtlog"
 }
 
 ### log:debug MESSAGE Usage:bbuild
 # Print a debug message to the log
 ###/doc
 function log:debug {
-	log:islevel "$LOG_LEVEL_DEBUG" || return
+    log:islevel "$LOG_LEVEL_DEBUG" || return 0
 
-	if [[ "$MODE_DEBUG" = yes ]]; then
-		echo -e "$LOGENTITY $(date "+%F %T") DEBUG: $*" >>"$BBLOGFILE"
-	fi
+    echo -e "$LOGENTITY $(date "+%F %T") DEBUG: $*" >>"$BBLOGFILE"
 }
 
 ### log:debug:fork [MARKER] Usage:bbuild
@@ -542,41 +677,41 @@ function log:debug {
 #
 ###/doc
 function log:debug:fork {
-	if log:islevel "$LOG_LEVEL_DEBUG"; then
-		local MARKER="${1:-PIPEDUMP}"; shift || :
-		MARKER="$(date "+%F %T") $MARKER :"
+    if log:islevel "$LOG_LEVEL_DEBUG"; then
+        local MARKER="${1:-PIPEDUMP}"; shift || :
+        MARKER="$(date "+%F %T") $MARKER :"
 
-		cat - | sed -r "s/^/$MARKER/" | tee -a "$BBLOGFILE"
-	else
-		cat -
-	fi
+        cat - | sed -r "s/^/$MARKER/" | tee -a "$BBLOGFILE"
+    else
+        cat -
+    fi
 }
 
 ### log:info MESSAGE Usage:bbuild
 # print an informational message to the log
 ###/doc
 function log:info {
-	log:islevel "$LOG_LEVEL_INFO" || return 0
+    log:islevel "$LOG_LEVEL_INFO" || return 0
 
-	echo -e "$LOGENTITY $(date "+%F %T") INFO: $*" >>"$BBLOGFILE"
+    echo -e "$LOGENTITY $(date "+%F %T") INFO: $*" >>"$BBLOGFILE"
 }
 
 ### log:warn MESSAGE Usage:bbuild
 # print a warning message to the log
 ###/doc
 function log:warn {
-	log:islevel "$LOG_LEVEL_WARN" || return 0
+    log:islevel "$LOG_LEVEL_WARN" || return 0
 
-	echo -e "$LOGENTITY $(date "+%F %T") WARN: $*" >>"$BBLOGFILE"
+    echo -e "$LOGENTITY $(date "+%F %T") WARN: $*" >>"$BBLOGFILE"
 }
 
 ### log:fail [CODE] MESSAGE Usage:bbuild
 # print a failure-level message to the log
 ###/doc
 function log:fail {
-	log:islevel "$LOG_LEVEL_FAIL" || return 0
+    log:islevel "$LOG_LEVEL_FAIL" || return 0
 
-	echo "$LOGENTITY $(date "+%F %T") FAIL: $*" >>"$BBLOGFILE"
+    echo "$LOGENTITY $(date "+%F %T") FAIL: $*" >>"$BBLOGFILE"
 }
 
 ### log:dump Usage:bbuild
@@ -592,11 +727,11 @@ function log:fail {
 ###/doc
 
 function log:dump {
-	log:debug "$* -------------¬"
-	log:debug "$(cat -)"
-	log:debug "______________/"
+    log:debug "$* -------------¬"
+    log:debug "$(cat -)"
+    log:debug "______________/"
 }
-#!/bin/bash
+##bash-libs: autohelp.sh @ 266ad599 (after 1.1.4)
 
 ### autohelp:print [ SECTION [FILE] ] Usage:bbuild
 # Write your help as documentation comments in your script
@@ -607,14 +742,14 @@ function log:dump {
 #
 # A help comment looks like this:
 #
-#	### <title> Usage:help
-#	#
-#	# <some content>
-#	#
-#	# end with "###/doc" on its own line (whitespaces before
-#	# and after are OK)
-#	#
-#	###/doc
+#    ### <title> Usage:help
+#    #
+#    # <some content>
+#    #
+#    # end with "###/doc" on its own line (whitespaces before
+#    # and after are OK)
+#    #
+#    ###/doc
 #
 # You can set a different help section by specifying a subsection
 #
@@ -635,10 +770,10 @@ function log:dump {
 HELPCHAR='#'
 
 function autohelp:print {
-	local SECTION_STRING="${1:-}"; shift
-	local TARGETFILE="${1:-}"; shift
-	[[ -n "$SECTION_STRING" ]] || SECTION_STRING=help
-	[[ -n "$TARGETFILE" ]] || TARGETFILE="$0"
+    local SECTION_STRING="${1:-}"; shift || :
+    local TARGETFILE="${1:-}"; shift || :
+    [[ -n "$SECTION_STRING" ]] || SECTION_STRING=help
+    [[ -n "$TARGETFILE" ]] || TARGETFILE="$0"
 
         echo -e "\n$(basename "$TARGETFILE")\n===\n"
         local SECSTART='^\s*'"$HELPCHAR$HELPCHAR$HELPCHAR"'\s+(.+?)\s+Usage:'"$SECTION_STRING"'\s*$'
@@ -654,7 +789,7 @@ function autohelp:print {
                         if [[ "$secline" =~ $SECEND ]]; then
                                 insec=false
                         else
-				echo "$secline" | sed -r "s/^\s*$HELPCHAR//g"
+                echo "$secline" | sed -r "s/^\s*$HELPCHAR//g"
                         fi
                 fi
         done < "$TARGETFILE"
@@ -662,7 +797,7 @@ function autohelp:print {
         if [[ "$insec" = true ]]; then
                 echo "WARNING: Non-terminated help block." 1>&2
         fi
-	echo ""
+    echo ""
 }
 
 ### autohelp:paged Usage:bbuild
@@ -671,8 +806,8 @@ function autohelp:print {
 #
 ###/doc
 function autohelp:paged {
-	: ${PAGER=less}
-	autohelp:print "$@" | $PAGER
+    : ${PAGER=less}
+    autohelp:print "$@" | $PAGER
 }
 
 ### autohelp:check Usage:bbuild
@@ -681,32 +816,34 @@ function autohelp:paged {
 #
 # Example use:
 #
-#	#!/bin/bash
+#    #!/bin/bash
 #
-#	### Some help Usage:help
-#	#
-#	# Some help text
-#	#
-#	###/doc
+#    ### Some help Usage:help
+#    #
+#    # Some help text
+#    #
+#    ###/doc
 #
-#	#%include autohelp.sh
+#    #%include autohelp.sh
 #
-#	main() {
-#		autohelp:check "$@"
+#    main() {
+#        autohelp:check "$@"
 #
-#		# now add your code
-#	}
+#        # now add your code
+#    }
 #
-#	main "$@"
+#    main "$@"
 #
 ###/doc
 autohelp:check() {
-	if [[ "$*" =~ --help ]]; then
-		cols="$(tput cols)"
-		autohelp:print | fold -w "$cols" -s || autohelp:print
-		exit 0
-	fi
+    if [[ "$*" =~ --help ]]; then
+        cols="$(tput cols)"
+        autohelp:print | fold -w "$cols" -s || autohelp:print
+        exit 0
+    fi
 }
+##bash-libs: runmain.sh @ 266ad599 (after 1.1.4)
+
 ### runmain SCRIPTNAME FUNCTION [ARGUMENTS ...] Usage:bbuild
 #
 # Runs the function FUNCTION with ARGUMENTS, only if the runtime
@@ -732,13 +869,13 @@ autohelp:check() {
 ###/doc
 
 function runmain {
-	local required_name="$1"; shift
-	local funcall="$1"; shift
-	local scriptname="$(basename "$0")"
+    local required_name="$1"; shift || :
+    local funcall="$1"; shift || :
+    local scriptname="$(basename "$0")"
 
-	if [[ "$required_name" = "$scriptname" ]]; then
-		"$funcall" "$@"
-	fi
+    if [[ "$required_name" = "$scriptname" ]]; then
+        "$funcall" "$@"
+    fi
 }
 
 set -euo pipefail
@@ -786,7 +923,7 @@ util:cleanup() {
 	util:killconn
 	rm .wsh-* 2>/dev/null || :
 }
-#!/bin/bash
+##bash-libs: abspath.sh @ 266ad599 (after 1.1.4)
 
 ### abspath:path RELATIVEPATH [ MAX ] Usage:bbuild
 # Returns the absolute path of a file/directory
@@ -796,60 +933,86 @@ util:cleanup() {
 ###/doc
 
 function abspath:path {
-	local workpath="$1" ; shift
-	local max="${1:-50}" ; shift
+    local workpath="$1" ; shift || :
+    local max="${1:-50}" ; shift || :
 
-	if [[ "${workpath:0:1}" != "/" ]]; then workpath="$PWD/$workpath"; fi
+    if [[ "${workpath:0:1}" != "/" ]]; then workpath="$PWD/$workpath"; fi
 
-	workpath="$(abspath:collapse "$workpath")"
-	abspath:resolve_dotdot "$workpath" "$max" | sed -r 's|(.)/$|\1|'
+    workpath="$(abspath:collapse "$workpath")"
+    abspath:resolve_dotdot "$workpath" "$max" | sed -r 's|(.)/$|\1|'
 }
 
 function abspath:collapse {
-	echo "$1" | sed -r 's|/\./|/|g ; s|/\.$|| ; s|/+|/|g'
+    echo "$1" | sed -r 's|/\./|/|g ; s|/\.$|| ; s|/+|/|g'
 }
 
 function abspath:resolve_dotdot {
-	local workpath="$1"; shift
-	local max="$1"; shift
+    local workpath="$1"; shift || :
+    local max="$1"; shift || :
 
-	# Set a limit on how many iterations to perform
-	# Only very obnoxious paths should fail
-	for x in $(seq 1 $max); do
-		# No more dot-dots - good to go
-		if [[ ! "$workpath" =~ /\.\.(/|$) ]]; then
-			echo "$workpath"
-			return 0
-		fi
+    # Set a limit on how many iterations to perform
+    # Only very obnoxious paths should fail
+    local obnoxious_counter
+    for obnoxious_counter in $(seq 1 $max); do
+        # No more dot-dots - good to go
+        if [[ ! "$workpath" =~ /\.\.(/|$) ]]; then
+            echo "$workpath"
+            return 0
+        fi
 
-		# Starts with an up-one at root - unresolvable
-		if [[ "$workpath" =~ ^/\.\.(/|$) ]]; then
-			return 1
-		fi
+        # Starts with an up-one at root - unresolvable
+        if [[ "$workpath" =~ ^/\.\.(/|$) ]]; then
+            return 1
+        fi
 
-		workpath="$(echo "$workpath"|sed -r 's@[^/]+/\.\.(/|$)@@')"
-	done
+        workpath="$(echo "$workpath"|sed -r 's@[^/]+/\.\.(/|$)@@')"
+    done
 
-	# A very obnoxious path was used.
-	return 2
+    # A very obnoxious path was used.
+    return 2
+}
+userfunction:run() {
+    local funcname operation target gtest output
+
+    output="${1:-}"; shift || out:fail "Internal error - userfunction:run no output pipe defined"
+    target="${1:-}" ; shift || out:fail "Internal error - userfunction:run no target function defined"
+
+    gtest=(grep -P "^${target}\s" "functions.txt")
+
+    [[ -f "functions.txt" ]] || {
+        log:info "No functions file"
+        http:respond "$output" 404 "Function unknown" <( echo "Unknown function $target" )
+    }
+
+    case "$("${gtest[@]}" | wc -l)" in
+    0)
+        http:respond "$output" 404 "Function unknown" <( echo "Unknown function $target" )
+        ;;
+    1)
+        out:info "Retrieving function definition"
+        read funcname operation < <("${gtest[@]}")
+        out:info "Sending result"
+        http:respond "$output" 200 "Running function $funcname" <(bash <(echo "$operation") 2>&1)
+        ;;
+    *)
+        http:respond "$output" 400 "Multiple function entires" <(echo "The function file provides too many identical keys")
+        ;;
+    esac
 }
 
 conn:listen() {
 	local input="$1"; shift
 	local output="$1"; shift
 
-	tail -f "$output" | nc -l "$webport" | conn:dump_guard > "$input" &
+	tail -f "$output" | nc -l "$webport" | conn:dump_headers_only > "$input" &
 
 	WEBSH_connid="$(util:pid_for nc "$webport")"
 }
 
-conn:dump_guard() {
-	local in_payload=false
-
+conn:dump_headers_only() {
 	while read; do
-		if [[ "$in_payload" = true ]] || [[ "$REPLY" =~ ^\s*$ ]]; then
-			in_payload=true
-			continue
+		if [[ "$REPLY" =~ ^\s*$ ]]; then
+			break
 		fi
 
 		echo "$REPLY"
@@ -864,7 +1027,12 @@ conn:respond() {
 
 	out:info "Client asked for: $requested_path -> $target"
 
-	if [[ -e "$target" ]] && ! util:hasperm "$target"; then
+	if [[ "$requested_path" =~ ^/~[a-zA-Z0-9]+$ ]]; then
+        log:info "Called function ${requested_path:2}"
+        out:info "Called function ${requested_path:2}"
+        userfunction:run "$output" "${requested_path:2}"
+
+    elif [[ -e "$target" ]] && ! util:hasperm "$target"; then
 		log:warn "Permission denied: $requested_path"
 		http:respond "$output" 403 "Forbidden" <(echo "You do not have permission to access this file.")
 
@@ -893,7 +1061,7 @@ conn:open() {
 
 	conn:listen "$input" "$output"
 
-	out:debug "Listening process: $WEBSH_connid"
+	debug:print "Listening process: $WEBSH_connid"
 
 	while ! util:haslines "$input"; do
 		sleep 2
@@ -956,7 +1124,7 @@ http:unescape_path() {
 
 	local code="$(http:find_code "$path")"
 	while [[ -n "$code" ]]; do
-		out:debug "Find code $code"
+		debug:print "Find code $code"
 		path="$(echo "$path" | sed "s|$code|$(echo "$code"|xxd -r -p)|g")"
 		code="$(http:find_code "$path")"
 	done
