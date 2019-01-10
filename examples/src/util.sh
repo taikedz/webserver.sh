@@ -8,7 +8,7 @@ util:pid_for() {
 	local procname="$1"; shift
 	local procport="$1"; shift
 
-	ss -tunlp | grep -oP "LISTEN.+?\*:$procport\s.+?users:\(\(\"$procname\",pid=[0-9]+" | sed -r 's/.+?=([0-9]+)$/\1/'
+	ss -tunlp | grep -oP "LISTEN.+?:$procport\s.+?users:\(\(\"$procname\",pid=[0-9]+" | sed -r 's/.+?=([0-9]+)$/\1/'
 }
 
 util:mktemp() {
@@ -29,9 +29,21 @@ util:hasperm() {
 	ls "$1" 2>&1 | grep -qv "Permission denied"
 }
 
+util:killnc() {
+    local ncpid="$(ps|grep -P '\bnc\b'|grep -Po '^[0-9]+')"
+    [[ -n "$ncpid" ]] || return
+    
+    ps | grep -P '\bnc\b'
+    
+    (set -x
+        kill $ncpid
+    )
+}
+
 util:killconn() {
 	[[ -n "${WEBSH_connid:-}" ]] || return
 	kill "$WEBSH_connid"
+
 }
 
 util:cleanup() {

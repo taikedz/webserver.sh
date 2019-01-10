@@ -1,10 +1,14 @@
-#%include abspath.sh out.sh log.sh userfunction.sh
+#%include std/abspath.sh
+#%include std/out.sh
+#%include std/log.sh
+
+#%include userfunction.sh
 
 conn:listen() {
 	local input="$1"; shift
 	local output="$1"; shift
 
-	tail -f "$output" | nc -l "$webport" | conn:dump_headers_only > "$input" &
+	tail -f "$output" | nc -l "$webport" | conn:dump_headers_only > "$input" 2>/dev/null &
 
 	WEBSH_connid="$(util:pid_for nc "$webport")"
 }

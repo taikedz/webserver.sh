@@ -18,39 +18,7 @@
 #
 ###/doc
 
-##bash-libs: out.sh @ 266ad599 (after 1.1.4)
-
-##bash-libs: colours.sh @ 266ad599 (after 1.1.4)
-
-### Colours for bash Usage:bbuild
-# A series of colour flags for use in outputs.
-#
-# Example:
-# 	
-# 	echo -e "${CRED}Some red text ${CBBLU} some blue text $CDEF some text in the terminal's default colour")
-#
-# Requires processing of escape characters.
-#
-# Colours available:
-#
-# CRED, CBRED, HLRED -- red, bold red, highlight red
-# CGRN, CBGRN, HLGRN -- green, bold green, highlight green
-# CYEL, CBYEL, HLYEL -- yellow, bold yellow, highlight yellow
-# CBLU, CBBLU, HLBLU -- blue, bold blue, highlight blue
-# CPUR, CBPUR, HLPUR -- purple, bold purple, highlight purple
-# CTEA, CBTEA, HLTEA -- teal, bold teal, highlight teal
-#
-# CDEF -- switches to the terminal default
-# CUNL -- add underline
-#
-# Note that highlight and underline must be applied or re-applied after specifying a colour.
-#
-# If the session is detected as being in a pipe, colours will be turned off.
-#   You can override this by calling `colours:check --color=always` at the start of your script
-#
-###/doc
-
-##bash-libs: tty.sh @ 266ad599 (after 1.1.4)
+##bash-libs: tty.sh @ addb4c5b (2.0.5)
 
 tty:is_ssh() {
     [[ -n "$SSH_TTY" ]] || [[ -n "$SSH_CLIENT" ]] || [[ "$SSH_CONNECTION" ]]
@@ -60,10 +28,65 @@ tty:is_pipe() {
     [[ ! -t 1 ]]
 }
 
-### colours:check ARGS Usage:bbuild
+##bash-libs: colours.sh @ addb4c5b (2.0.5)
+
+### Colours for terminal Usage:bbuild
+# A series of shorthand colour flags for use in outputs, and functions to set your own flags.
+#
+# Not all terminals support all colours or modifiers.
+#
+# Example:
+# 	
+# 	echo "${CRED}Some red text ${CBBLU} some blue text. $CDEF Some text in the terminal's default colour")
+#
+# Preconfigured colours available:
+#
+# CRED, CBRED, HLRED -- red, bright red, highlight red
+# CGRN, CBGRN, HLGRN -- green, bright green, highlight green
+# CYEL, CBYEL, HLYEL -- yellow, bright yellow, highlight yellow
+# CBLU, CBBLU, HLBLU -- blue, bright blue, highlight blue
+# CPUR, CBPUR, HLPUR -- purple, bright purple, highlight purple
+# CTEA, CBTEA, HLTEA -- teal, bright teal, highlight teal
+# CBLA, CBBLA, HLBLA -- black, bright red, highlight red
+# CWHI, CBWHI, HLWHI -- white, bright red, highlight red
+#
+# Modifiers available:
+#
+# CBON - activate bright
+# CDON - activate dim
+# ULON - activate underline
+# RVON - activate reverse (switch foreground and background)
+# SKON - activate strikethrough
+# 
+# Resets available:
+#
+# CNORM -- turn off bright or dim, without affecting other modifiers
+# ULOFF -- turn off highlighting
+# RVOFF -- turn off inverse
+# SKOFF -- turn off strikethrough
+# HLOFF -- turn off highlight
+#
+# CDEF -- turn off all colours and modifiers(switches to the terminal default)
+#
+# Note that highlight and underline must be applied or re-applied after specifying a colour.
+#
+# If the session is detected as being in a pipe, colours will be turned off.
+#   You can override this by calling `colours:check --color=always` at the start of your script
+#
+###/doc
+
+### colours:check ARGS ... Usage:bbuild
 #
 # Check the args to see if there's a `--color=always` or `--color=never`
 #   and reload the colours appropriately
+#
+#   main() {
+#       colours:check "$@"
+#
+#       echo "${CGRN}Green only in tty or if --colours=always !${CDEF}"
+#   }
+#
+#   main "$@"
 #
 ###/doc
 colours:check() {
@@ -77,6 +100,74 @@ colours:check() {
     return 0
 }
 
+### colours:set CODE Usage:bbuild
+# Set an explicit colour code - e.g.
+#
+#   echo "$(colours:set "33;2")Dim yellow text${CDEF}"
+#
+# See SGR Colours definitions
+#   <https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters>
+###/doc
+colours:set() {
+    # We use `echo -e` here rather than directly embedding a binary character
+    if [[ "$COLOURS_ON" = false ]]; then
+        return 0
+    else
+        echo -e "\033[${1}m"
+    fi
+}
+
+colours:define() {
+
+    # Shorthand colours
+
+    export CBLA="$(colours:set "30")"
+    export CRED="$(colours:set "31")"
+    export CGRN="$(colours:set "32")"
+    export CYEL="$(colours:set "33")"
+    export CBLU="$(colours:set "34")"
+    export CPUR="$(colours:set "35")"
+    export CTEA="$(colours:set "36")"
+    export CWHI="$(colours:set "37")"
+
+    export CBBLA="$(colours:set "1;30")"
+    export CBRED="$(colours:set "1;31")"
+    export CBGRN="$(colours:set "1;32")"
+    export CBYEL="$(colours:set "1;33")"
+    export CBBLU="$(colours:set "1;34")"
+    export CBPUR="$(colours:set "1;35")"
+    export CBTEA="$(colours:set "1;36")"
+    export CBWHI="$(colours:set "1;37")"
+
+    export HLBLA="$(colours:set "40")"
+    export HLRED="$(colours:set "41")"
+    export HLGRN="$(colours:set "42")"
+    export HLYEL="$(colours:set "43")"
+    export HLBLU="$(colours:set "44")"
+    export HLPUR="$(colours:set "45")"
+    export HLTEA="$(colours:set "46")"
+    export HLWHI="$(colours:set "47")"
+
+    # Modifiers
+    
+    export CBON="$(colours:set "1")"
+    export CDON="$(colours:set "2")"
+    export ULON="$(colours:set "4")"
+    export RVON="$(colours:set "7")"
+    export SKON="$(colours:set "9")"
+
+    # Resets
+
+    export CBNRM="$(colours:set "22")"
+    export HLOFF="$(colours:set "49")"
+    export ULOFF="$(colours:set "24")"
+    export RVOFF="$(colours:set "27")"
+    export SKOFF="$(colours:set "29")"
+
+    export CDEF="$(colours:set "0")"
+
+}
+
 colours:auto() {
     if tty:is_pipe ; then
         COLOURS_ON=false
@@ -88,61 +179,9 @@ colours:auto() {
     return 0
 }
 
-colours:define() {
-    if [[ "$COLOURS_ON" = false ]]; then
-
-        export CRED=''
-        export CGRN=''
-        export CYEL=''
-        export CBLU=''
-        export CPUR=''
-        export CTEA=''
-
-        export CBRED=''
-        export CBGRN=''
-        export CBYEL=''
-        export CBBLU=''
-        export CBPUR=''
-        export CBTEA=''
-
-        export HLRED=''
-        export HLGRN=''
-        export HLYEL=''
-        export HLBLU=''
-        export HLPUR=''
-        export HLTEA=''
-
-        export CDEF=''
-
-    else
-
-        export CRED=$(echo -e "\033[0;31m")
-        export CGRN=$(echo -e "\033[0;32m")
-        export CYEL=$(echo -e "\033[0;33m")
-        export CBLU=$(echo -e "\033[0;34m")
-        export CPUR=$(echo -e "\033[0;35m")
-        export CTEA=$(echo -e "\033[0;36m")
-
-        export CBRED=$(echo -e "\033[1;31m")
-        export CBGRN=$(echo -e "\033[1;32m")
-        export CBYEL=$(echo -e "\033[1;33m")
-        export CBBLU=$(echo -e "\033[1;34m")
-        export CBPUR=$(echo -e "\033[1;35m")
-        export CBTEA=$(echo -e "\033[1;36m")
-
-        export HLRED=$(echo -e "\033[41m")
-        export HLGRN=$(echo -e "\033[42m")
-        export HLYEL=$(echo -e "\033[43m")
-        export HLBLU=$(echo -e "\033[44m")
-        export HLPUR=$(echo -e "\033[45m")
-        export HLTEA=$(echo -e "\033[46m")
-
-        export CDEF=$(echo -e "\033[0m")
-
-    fi
-}
-
 colours:auto
+
+##bash-libs: out.sh @ addb4c5b (2.0.5)
 
 ### Console output handlers Usage:bbuild
 #
@@ -229,7 +268,32 @@ function out:fail {
 function out:error {
     echo "${CBRED}ERROR: ${CRED}$*$CDEF" 1>&2
 }
-#%import colour.sh
+##bash-libs: patterns.sh @ addb4c5b (2.0.5)
+
+### Useful patterns Usage:bbuild
+#
+# Some useful regex patterns, exported as environment variables.
+#
+# They are not foolproof, and you are encouraged to improve upon them.
+#
+# $PAT_blank - detects whether an entire line is empty or whitespace
+# $PAT_comment - detects whether is a line is a script comment (assumes '#' as the comment marker)
+# $PAT_num - detects whether the string is an integer number in its entirety
+# $PAT_cvar - detects if the string is a valid C variable name
+# $PAT_filename - detects if the string is a safe UNIX or Windows file name;
+#   does not allow presence of whitespace or special characters aside from '_', '.', '-'
+# $PAT_email - simple heuristic to determine whether a string looks like a valid email address
+#
+###/doc
+
+export PAT_blank='^\s*$'
+export PAT_comment='^\s*(#.*)?$'
+export PAT_num='^[0-9]+$'
+export PAT_cvar='^[a-zA-Z_][a-zA-Z0-9_]*$'
+export PAT_filename='^[a-zA-Z0-9_.-]$'
+export PAT_email="$PAT_filename@$PAT_filename.$PAT_cvar"
+
+##bash-libs: debug.sh @ addb4c5b (2.0.5)
 
 ### Debug lib Usage:bbuild
 #
@@ -312,9 +376,16 @@ function debug:dump {
 #
 # Requires `DEBUG_mode` set to true
 #
-# When the script runs, the message is printed with a propmt, and execution pauses.
+# When the script runs, the message is printed with a prompt, and execution pauses.
 #
 # Press return to continue execution.
+#
+# Type a variable name, with leading `$`, to dump it, e.g. `$myvar`
+#
+# Type a variable name, with leading `$`, follwoed by an assignment to change its value, e.g. `$myvar=new value`
+#  the new value will be seen by the script.
+#
+# Type 'env' to dump the current environment variables.
 #
 # Type `exit`, `quit` or `stop` to stop the program. If the breakpoint is in a subshell,
 #  execution from after the subshell will be resumed.
@@ -323,39 +394,53 @@ function debug:dump {
 
 function debug:break {
     [[ "$DEBUG_mode" = true ]] || return 0
+    local reply
 
-    echo -en "${CRED}BREAKPOINT: $* >$CDEF " >&2
-    read
-    if [[ "$REPLY" =~ quit|exit|stop ]]; then
-        echo "${CBRED}ABORT${CDEF}"
+    while true; do
+        read -p "${CRED}BREAKPOINT: $* >$CDEF " reply
+        if [[ "$reply" =~ quit|exit|stop ]]; then
+            echo "${CBRED}ABORT${CDEF}" >&2
+            exit 127
+
+        elif [[ "$reply" = env ]]; then
+            env |sed 's//^[/g' |debug:dump "--- "
+
+        elif [[ "$reply" =~ ^\$ ]]; then
+            debug:_break_dump "${reply:1}" || :
+
+        elif [[ -z "$reply" ]]; then
+            return 0
+        else
+            debug:print "'quit','exit' or 'stop' to abort; '\$varname' to see a variable's contents; '\$varname=new value' to assign a new value for run time; <Enter> to continue"
+        fi
+    done
+}
+
+debug:_break_dump() {
+    local inspectable="$1"
+    local varname="$1"
+    local varval
+
+    if [[ "$inspectable" =~ = ]]; then
+        varname="${inspectable%%=*}"
+        varval="${inspectable#*=}"
+    fi
+
+    [[ "$varname" =~ $PAT_cvar ]] || {
+        debug:print "${CRED}Invalid var name '$varname'"
+        return 1
+    }
+
+    declare -n inspect="$varname"
+
+    if [[ "$inspectable" =~ = ]]; then
+        inspect="$varval"
+    else
+        echo "$inspect"
     fi
 }
-##bash-libs: args.sh @ 266ad599 (after 1.1.4)
 
-##bash-libs: patterns.sh @ 266ad599 (after 1.1.4)
-
-### Useful patterns Usage:bbuild
-#
-# Some useful regex patterns, exported as environment variables.
-#
-# They are not foolproof, and you are encouraged to improve upon them.
-#
-# $PAT_blank - detects whether an entire line is empty or whitespace
-# $PAT_comment - detects whether is a line is a script comment (assumes '#' as the comment marker)
-# $PAT_num - detects whether the string is an integer number in its entirety
-# $PAT_cvar - detects if the string is a valid C variable name
-# $PAT_filename - detects if the string is a safe UNIX or Windows file name;
-#   does not allow presence of whitespace or special characters aside from '_', '.', '-'
-# $PAT_email - simple heuristic to determine whether a string looks like a valid email address
-#
-###/doc
-
-export PAT_blank='^\s*$'
-export PAT_comment='^\s*(#.*)?$'
-export PAT_num='^[0-9]+$'
-export PAT_cvar='^[a-zA-Z_][a-zA-Z0-9_]*$'
-export PAT_filename='^[a-zA-Z0-9_.-]$'
-export PAT_email="$PAT_filename@$PAT_filename.$PAT_cvar"
+##bash-libs: args.sh @ addb4c5b (2.0.5)
 
 ### args Usage:bbuild
 #
@@ -386,7 +471,7 @@ export PAT_email="$PAT_filename@$PAT_filename.$PAT_cvar"
 #
 ###/doc
 
-function args:get {
+args:get() {
     local seek="$1"; shift || :
 
     if [[ "$seek" =~ $PAT_num ]]; then
@@ -410,7 +495,7 @@ function args:get {
     fi
 }
 
-function args:get_short {
+args:get_short() {
     local token="$1"; shift || :
     while [[ -n "$*" ]]; do
         local item="$1"; shift || :
@@ -423,7 +508,7 @@ function args:get_short {
     return 1
 }
 
-function args:get_long {
+args:get_long() {
     local token="$1"; shift || :
     local tokenpat="^$token=(.*)$"
 
@@ -456,7 +541,7 @@ function args:get_long {
 #
 ###/doc
 
-function args:has {
+args:has() {
     local token="$1"; shift || :
     for item in "$@"; do
         if [[ "$token" = "$item" ]]; then
@@ -485,7 +570,7 @@ function args:has {
 #
 ###/doc
 
-function args:after {
+args:after() {
     local token="$1"; shift || :
     
     local current_token="$1"; shift || :
@@ -495,8 +580,122 @@ function args:after {
 
     RETARR_ARGSAFTER=("$@")
 }
-##bash-libs: log.sh @ 266ad599 (after 1.1.4)
 
+##bash-libs: syntax-extensions.sh @ addb4c5b (2.0.5)
+
+### Syntax Extensions Usage:syntax
+#
+# Syntax extensions for bash-builder.
+#
+# You will need to import this library if you use Bash Builder's extended syntax macros.
+#
+# You should not however use the functions directly, but the extended syntax instead.
+#
+##/doc
+
+### syntax-extensions:use FUNCNAME ARGNAMES ... Usage:syntax
+#
+# Consume arguments into named global variables.
+#
+# If not enough argument values are found, the first named variable that failed to be assigned is printed as error
+#
+# ARGNAMES prefixed with '?' do not trigger an error
+#
+# Example:
+#
+#   #%include out.sh
+#   #%include syntax-extensions.sh
+#
+#   get_parameters() {
+#       . <(syntax-extensions:use get_parameters INFILE OUTFILE ?comment)
+#
+#       [[ -f "$INFILE" ]]  || out:fail "Input file '$INFILE' does not exist"
+#       [[ -f "$OUTFILE" ]] || out:fail "Output file '$OUTFILE' does not exist"
+#
+#       [[ -z "$comment" ]] || echo "Note: $comment"
+#   }
+#
+#   main() {
+#       get_parameters "$@"
+#
+#       echo "$INFILE will be converted to $OUTFILE"
+#   }
+#
+#   main "$@"
+#
+###/doc
+syntax-extensions:use() {
+    local argname arglist undef_f dec_scope argidx argone failmsg pos_ok
+    
+    dec_scope=""
+    [[ "${SYNTAXLIB_scope:-}" = local ]] || dec_scope=g
+    arglist=(:)
+    argone=\"\${1:-}\"
+    pos_ok=true
+    
+    for argname in "$@"; do
+        [[ "$argname" != -- ]] || break
+        [[ "$argname" =~ ^(\?|\*)?[0-9a-zA-Z_]+$ ]] || out:fail "Internal: Not a valid argument name '$argname'"
+
+        arglist+=("$argname")
+    done
+
+    argidx=1
+    while [[ "$argidx" -lt "${#arglist[@]}" ]]; do
+        argname="${arglist[$argidx]}"
+        failmsg="\"Internal: could not get '$argname' in function arguments\""
+        posfailmsg="Internal: positional argument '$argname' encountered after optional argument(s)"
+
+        if [[ "$argname" =~ ^\? ]]; then
+            echo "$SYNTAXLIB_scope ${argname:1}=$argone; shift || :"
+            pos_ok=false
+
+        elif [[ "$argname" =~ ^\* ]]; then
+            [[ "$pos_ok" != false ]] || out:fail "$posfailmsg"
+            echo "[[ '${argname:1}' != \"$argone\" ]] || out:fail \"Internal: Local name [$argname] equals upstream [$argone]. Rename [$argname] (suggestion: [*p_${argname:1}])\""
+            echo "declare -n${dec_scope} ${argname:1}=$argone; shift || out:fail $failmsg"
+
+        else
+            [[ "$pos_ok" != false ]] || out:fail "$posfailmsg"
+            echo "$SYNTAXLIB_scope ${argname}=$argone; shift || out:fail $failmsg"
+        fi
+
+        argidx=$((argidx + 1))
+    done
+}
+
+
+### syntax-extensions:use:local FUNCNAME ARGNAMES ... Usage:syntax
+# 
+# Enables syntax macro: function signatures
+#   e.g. $%function func(var1 var2) { ... }
+#
+# Build with bbuild to leverage this function's use:
+#
+#   #%include out.sh
+#   #%include syntax-extensions.sh
+#
+#   $%function person(name email) {
+#       echo "$name <$email>"
+#
+#       # $1 and $2 have been consumed into $name and $email
+#       # The rest remains available in $* :
+#       
+#       echo "Additional notes: $*"
+#   }
+#
+#   person "Jo Smith" "jsmith@example.com" Some details
+#
+###/doc
+syntax-extensions:use:local() {
+    SYNTAXLIB_scope=local syntax-extensions:use "$@"
+}
+
+args:use:local() {
+    syntax-extensions:use:local "$@"
+}
+
+##bash-libs: log.sh @ addb4c5b (2.0.5)
 
 ### Logging facility Usage:bbuild
 #
@@ -510,6 +709,7 @@ function args:after {
 # Example usage:
 #
 # 	log:use_file activity.log
+# 	log:level warn
 #
 # 	log:info "This is an info message"
 #
@@ -518,30 +718,54 @@ function args:after {
 BBLOGFILE=/dev/stderr
 LOGENTITY=$(basename "$0")
 
-### LOG_LEVEL Usage:bbuild
-#
-# Log level environment variable, by default set to WARN level.
-#
-# Set it to one of the predefined values:
-#
-# $LOG_LEVEL_FAIL - failures only
-# $LOG_LEVEL_WARN - failures and warnings
-# $LOG_LEVEL_INFO - failures, warnings and information
-# $LOG_LEVEL_DEBUG - failures, warnings, info and debug
-#
-# Example:
-#
-# 	export LOG_LEVEL=$LOG_LEVEL_INFO
-# 	command ...
-#
-###/doc
-
-LOG_LEVEL=1
+LOG_LEVEL=0
 
 LOG_LEVEL_FAIL=0
 LOG_LEVEL_WARN=1
 LOG_LEVEL_INFO=2
 LOG_LEVEL_DEBUG=3
+
+log:_validate_level() {
+    . <(args:use:local level ?name -- "$@") ; 
+    [[ "$level" =~ ^(debug|info|warn|fail)$ ]] || out:fail "Internal Error: $name called with incorrect level '$level'"
+}
+
+### log:level LEVEL Usage:bbuild
+#
+# Set log level: debug, info, warn, fail
+#
+# fail - failures only
+# warn - failures and warnings
+# info - failures, warnings and information
+# debug - failures, warnings, info and debug
+#
+# Example:
+#
+# 	log:level info
+# 	log:info "Hello!"
+# 	log:debug "Won't print"
+#
+###/doc
+
+log:level() {
+    . <(args:use:local level -- "$@") ; 
+    log:_validate_level "$level" "log:level"
+
+    case "$level" in
+    debug)
+        LOG_LEVEL="$LOG_LEVEL_DEBUG"
+        ;;
+    info)
+        LOG_LEVEL="$LOG_LEVEL_INFO"
+        ;;
+    warn)
+        LOG_LEVEL="$LOG_LEVEL_WARN"
+        ;;
+    fail)
+        LOG_LEVEL="$LOG_LEVEL_FAIL"
+        ;;
+    esac
+}
 
 # Handily determine that the minimal level threshold is met
 function log:islevel {
@@ -550,11 +774,11 @@ function log:islevel {
     [[ "$LOG_LEVEL" -ge "$req_level" ]]
 }
 
-### log:get_level ARGS ... Usage:bbuild
+### log:get_level [ARGS ...] Usage:bbuild
 #
 # Pass script arguments and check for log level modifier
 #
-# This function will look for an argument like --log=N or --log={fail|warn|info|debug} and set the level appropriately
+# This function will look for an argument like --log={fail|warn|info|debug} and set the level appropriately
 #
 # Retuns non-zero if log level was specified but could not be determined
 #
@@ -587,7 +811,7 @@ function log:get_level {
     3|debug)
         LOG_LEVEL="$LOG_LEVEL_DEBUG" ;;
     *)
-        return 1
+        return 1 ;;
     esac
 
     return 0
@@ -605,7 +829,7 @@ function log:use_file {
 
     if [[ ! "$target_file" =~ $standard_outputs ]]; then
 
-        echo "$LOGENTITY $(date +"%F %T") Selecting log file" >> "$target_file" || {
+        echo "$LOGENTITY $(date +"%F %T") Selecting log file $target_file" >> "$target_file" || {
             res=1
             local msg="Could not set the log file to [$target_file] ; moving to stderr"
 
@@ -667,26 +891,6 @@ function log:debug {
     echo -e "$LOGENTITY $(date "+%F %T") DEBUG: $*" >>"$BBLOGFILE"
 }
 
-### log:debug:fork [MARKER] Usage:bbuild
-#
-# Pipe the data coming through stdin to stdout
-#
-# *Also* write the same data to the log when at debug level, each line preceded by MARKER
-#
-# Insert this debug fork into pipes to record their output
-#
-###/doc
-function log:debug:fork {
-    if log:islevel "$LOG_LEVEL_DEBUG"; then
-        local MARKER="${1:-PIPEDUMP}"; shift || :
-        MARKER="$(date "+%F %T") $MARKER :"
-
-        cat - | sed -r "s/^/$MARKER/" | tee -a "$BBLOGFILE"
-    else
-        cat -
-    fi
-}
-
 ### log:info MESSAGE Usage:bbuild
 # print an informational message to the log
 ###/doc
@@ -731,14 +935,66 @@ function log:dump {
     log:debug "$(cat -)"
     log:debug "______________/"
 }
-##bash-libs: autohelp.sh @ 266ad599 (after 1.1.4)
 
-### autohelp:print [ SECTION [FILE] ] Usage:bbuild
+### log:debug:fork [MARKER] Usage:bbuild
+#
+# DEPRECATED - please use `log:stream` instead ; this function prints log marker and date to stdout, as well as being tied directly to debug
+#
+# Pipe the data coming through stdin to stdout
+#
+# *Also* write the same data to the log when at debug level, each line preceded by MARKER
+#
+# Insert this debug fork into pipes to record their output
+#
+###/doc
+function log:debug:fork {
+    log:fail "--- DEPRECATED log:debug:fork used ---"
+    if log:islevel "$LOG_LEVEL_DEBUG"; then
+        local MARKER="${1:-PIPEDUMP}"; shift || :
+        MARKER="$(date "+%F %T") $MARKER :"
+
+        cat - | sed -r "s/^/$MARKER/" | tee -a "$BBLOGFILE"
+    else
+        cat -
+    fi
+}
+
+### log:stream LEVEL [MARKER] Usage:bbuild
+#
+# Pipe a stream through this function ; upon reading each line:
+#
+# * a log line will be written for the appropriate level, with a date for the line
+# * the input line will be written verbatim to stdout
+#
+# Insert this function into pipes to log the data going through.
+#
+###/doc
+
+log:stream() {
+    . <(args:use:local level ?marker -- "$@") ; 
+    local inputline
+    [[ ! "$marker" =~ ^\s*$ ]] || marker=PIPED
+
+    log:_validate_level "$level" "log:stream"
+
+    while read inputline; do
+        log:"$level" "$marker | $inputline"
+        echo "$inputline"
+    done
+}
+
+##bash-libs: autohelp.sh @ addb4c5b (2.0.5)
+
+### Autohelp Usage:bbuild
+#
+# Autohelp provides some simple facilities for defining help as comments in your code.
+# It provides several functions for printing specially formatted comment sections.
+#
 # Write your help as documentation comments in your script
 #
-# If you need to output the help from your script, or a file, call the
+# To output a named section from your script, or a file, call the
 # `autohelp:print` function and it will print the help documentation
-# in the current script to stdout
+# in the current script, or specified file, to stdout
 #
 # A help comment looks like this:
 #
@@ -751,7 +1007,11 @@ function log:dump {
 #    #
 #    ###/doc
 #
-# You can set a different help section by specifying a subsection
+# It can then be printed from the same script by simply calling
+#
+#   autohelp:print
+#
+# You can print a different section by specifying a different name
 #
 # 	autohelp:print section2
 #
@@ -761,43 +1021,102 @@ function log:dump {
 # 	# <some content>
 # 	###/doc
 #
-# You can set a different comment character by setting the 'HELPCHAR' environment variable:
+# You can set a different comment character by setting the 'HELPCHAR' environment variable.
+# Typically, you might want to print comments you set in a INI config file, for example
 #
-# 	HELPCHAR=%
+# 	HELPCHAR=";" autohelp:print help config-file.ini
+# 
+# Which would then find comments defined like this in `config-file.ini`:
 #
+#   ;;; Main config Usage:help
+#   ; Help comments in a config file
+#   ; may start with a different comment character
+#   ;;;/doc
+#
+#
+#
+# Example usage in a multi-function script:
+#
+#   #!usr/bin/env bash
+#
+#   ### Main help Usage:help
+#   # The main help
+#   ###/doc
+#
+#   ### Feature One Usage:feature_1
+#   # Help text for the first feature
+#   ###/doc
+#
+#   feature1() {
+#       autohelp:check:section feature_1 "$@"
+#       echo "Feature I"
+#   }
+#
+#   ### Feature Two Usage:feature_2
+#   # Help text for the second feature
+#   ###/doc
+#
+#   feature2() {
+#       autohelp:check:section feature_2 "$@"
+#       echo "Feature II"
+#   }
+#
+#   main() {
+#       case "$1" in
+#       feature1|feature2)
+#           "$1" "$@"            # Pass the global script arguments through
+#           ;;
+#       *)
+#           autohelp:check-no-null "$@"  # Check if main help was asked for, if so, or if no args, exit with help
+#
+#           # Main help not requested, return error
+#           echo "Unknown feature"
+#           exit 1
+#           ;;
+#       esac
+#   }
+#
+#   main "$@"
+#
+###/doc
+
+### autohelp:print [ SECTION [FILE] ] Usage:bbuild
+# Print the specified section, in the specified file.
+#
+# If no file is specified, prints for current script file.
+# If no section is specified, defaults to "help"
 ###/doc
 
 HELPCHAR='#'
 
-function autohelp:print {
-    local SECTION_STRING="${1:-}"; shift || :
-    local TARGETFILE="${1:-}"; shift || :
-    [[ -n "$SECTION_STRING" ]] || SECTION_STRING=help
-    [[ -n "$TARGETFILE" ]] || TARGETFILE="$0"
+autohelp:print() {
+    local input_line
+    local section_string="${1:-}"; shift || :
+    local target_file="${1:-}"; shift || :
+    [[ -n "$section_string" ]] || section_string=help
+    [[ -n "$target_file" ]] || target_file="$0"
 
-        echo -e "\n$(basename "$TARGETFILE")\n===\n"
-        local SECSTART='^\s*'"$HELPCHAR$HELPCHAR$HELPCHAR"'\s+(.+?)\s+Usage:'"$SECTION_STRING"'\s*$'
-        local SECEND='^\s*'"$HELPCHAR$HELPCHAR$HELPCHAR"'\s*/doc\s*$'
-        local insec=false
+    local sec_start='^\s*'"$HELPCHAR$HELPCHAR$HELPCHAR"'\s+(.+?)\s+Usage:'"$section_string"'\s*$'
+    local sec_end='^\s*'"$HELPCHAR$HELPCHAR$HELPCHAR"'\s*/doc\s*$'
+    local in_section=false
 
-        while read secline; do
-                if [[ "$secline" =~ $SECSTART ]]; then
-                        insec=true
-                        echo -e "\n${BASH_REMATCH[1]}\n---\n"
+    while read input_line; do
+        if [[ "$input_line" =~ $sec_start ]]; then
+            in_section=true
+            echo -e "\n${BASH_REMATCH[1]}\n======="
 
-                elif [[ "$insec" = true ]]; then
-                        if [[ "$secline" =~ $SECEND ]]; then
-                                insec=false
-                        else
-                echo "$secline" | sed -r "s/^\s*$HELPCHAR//g"
-                        fi
-                fi
-        done < "$TARGETFILE"
-
-        if [[ "$insec" = true ]]; then
-                echo "WARNING: Non-terminated help block." 1>&2
+        elif [[ "$in_section" = true ]]; then
+            if [[ "$input_line" =~ $sec_end ]]; then
+                in_section=false
+            else
+                echo "$input_line" | sed -r "s/^\s*$HELPCHAR/ /;s/^  (\S)/\1/"
+            fi
         fi
-    echo ""
+    done < "$target_file"
+
+    if [[ "$in_section" = true ]]; then
+            out:fail "Non-terminated help block."
+    fi
 }
 
 ### autohelp:paged Usage:bbuild
@@ -805,44 +1124,64 @@ function autohelp:print {
 # Display the help in the pager defined in the PAGER environment variable
 #
 ###/doc
-function autohelp:paged {
+autohelp:paged() {
     : ${PAGER=less}
     autohelp:print "$@" | $PAGER
 }
 
-### autohelp:check Usage:bbuild
+### autohelp:check-or-null ARGS ... Usage:bbuild
+# Print help if arguments are empty, or if arguments contain a '--help' token
 #
-# Automatically print help and exit if "--help" is detected in arguments
+###/doc
+autohelp:check-or-null() {
+    if [[ -z "$*" ]]; then
+        autohelp:print help "$0"
+        exit 0
+    else
+        autohelp:check:section "help" "$@"
+    fi
+}
+
+### autohelp:check-or-null:section SECTION ARGS ... Usage:bbuild
+# Print help section SECTION if arguments are empty, or if arguments contain a '--help' token
 #
-# Example use:
+###/doc
+autohelp:check-or-null:section() {
+    . <(args:use:local section -- "$@") ; 
+    if [[ -z "$*" ]]; then
+        autohelp:print "$section" "$0"
+        exit 0
+    else
+        autohelp:check:section "$section" "$@"
+    fi
+}
+
+### autohelp:check ARGS ... Usage:bbuild
 #
-#    #!/bin/bash
-#
-#    ### Some help Usage:help
-#    #
-#    # Some help text
-#    #
-#    ###/doc
-#
-#    #%include autohelp.sh
-#
-#    main() {
-#        autohelp:check "$@"
-#
-#        # now add your code
-#    }
-#
-#    main "$@"
+# Automatically print "help" sections and exit, if "--help" is detected in arguments
 #
 ###/doc
 autohelp:check() {
-    if [[ "$*" =~ --help ]]; then
-        cols="$(tput cols)"
-        autohelp:print | fold -w "$cols" -s || autohelp:print
-        exit 0
-    fi
+    autohelp:check:section "help" "$@"
 }
-##bash-libs: runmain.sh @ 266ad599 (after 1.1.4)
+
+### autohelp:check:section SECTION ARGS ... Usage:bbuild
+# Automatically print documentation for named section and exit, if "--help" is detected in arguments
+#
+###/doc
+autohelp:check:section() {
+    local section arg
+    section="${1:-}"; shift || out:fail "No help section specified"
+
+    for arg in "$@"; do
+        if [[ "$arg" =~ --help ]]; then
+            cols="$(tput cols)"
+            autohelp:print "$section" | fold -w "$cols" -s || autohelp:print "$section"
+            exit 0
+        fi
+    done
+}
+##bash-libs: runmain.sh @ addb4c5b (2.0.5)
 
 ### runmain SCRIPTNAME FUNCTION [ARGUMENTS ...] Usage:bbuild
 #
@@ -893,7 +1232,7 @@ util:pid_for() {
 	local procname="$1"; shift
 	local procport="$1"; shift
 
-	ss -tunlp | grep -oP "LISTEN.+?\*:$procport\s.+?users:\(\(\"$procname\",pid=[0-9]+" | sed -r 's/.+?=([0-9]+)$/\1/'
+	ss -tunlp | grep -oP "LISTEN.+?:$procport\s.+?users:\(\(\"$procname\",pid=[0-9]+" | sed -r 's/.+?=([0-9]+)$/\1/'
 }
 
 util:mktemp() {
@@ -914,16 +1253,28 @@ util:hasperm() {
 	ls "$1" 2>&1 | grep -qv "Permission denied"
 }
 
+util:killnc() {
+    local ncpid="$(ps|grep -P '\bnc\b'|grep -Po '^[0-9]+')"
+    [[ -n "$ncpid" ]] || return
+    
+    ps | grep -P '\bnc\b'
+    
+    (set -x
+        kill $ncpid
+    )
+}
+
 util:killconn() {
 	[[ -n "${WEBSH_connid:-}" ]] || return
 	kill "$WEBSH_connid"
+
 }
 
 util:cleanup() {
 	util:killconn
 	rm .wsh-* 2>/dev/null || :
 }
-##bash-libs: abspath.sh @ 266ad599 (after 1.1.4)
+##bash-libs: abspath.sh @ addb4c5b (2.0.5)
 
 ### abspath:path RELATIVEPATH [ MAX ] Usage:bbuild
 # Returns the absolute path of a file/directory
@@ -971,6 +1322,7 @@ function abspath:resolve_dotdot {
     # A very obnoxious path was used.
     return 2
 }
+
 userfunction:run() {
     local funcname operation target gtest output
 
@@ -1004,7 +1356,7 @@ conn:listen() {
 	local input="$1"; shift
 	local output="$1"; shift
 
-	tail -f "$output" | nc -l "$webport" | conn:dump_headers_only > "$input" &
+	tail -f "$output" | nc -l "$webport" | conn:dump_headers_only > "$input" 2>/dev/null &
 
 	WEBSH_connid="$(util:pid_for nc "$webport")"
 }
@@ -1148,7 +1500,8 @@ parse_arguments() {
 	log:use_file "$logname"
 
 	if args:has --debug "$@"; then
-		MODE_DEBUG=true
+		DEBUG_mode=true
+        log:level debug
 	fi
 
 	if args:has --trace "$@"; then

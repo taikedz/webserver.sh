@@ -1,2 +1,0 @@
-BBFILES=(examples/src/webserver.sh)
-BUILDOUTD=bin

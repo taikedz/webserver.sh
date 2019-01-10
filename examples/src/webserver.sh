@@ -18,14 +18,21 @@
 #
 ###/doc
 
-#%include out.sh debug.sh args.sh log.sh autohelp.sh runmain.sh
+#%include std/out.sh
+#%include std/debug.sh
+#%include std/args.sh
+#%include std/log.sh
+#%include std/autohelp.sh
+#%include std/runmain.sh
 
 set -euo pipefail
 
 WEBSH_default_port=8080
 WEBSH_default_logfile="./webserver-sh.log"
 
-#%include util.sh conn.sh http.sh
+#%include util.sh
+#%include conn.sh
+#%include http.sh
 
 parse_arguments() {
 	if args:has --help "$@" ; then
@@ -40,7 +47,8 @@ parse_arguments() {
 	log:use_file "$logname"
 
 	if args:has --debug "$@"; then
-		MODE_DEBUG=true
+		DEBUG_mode=true
+        log:level debug
 	fi
 
 	if args:has --trace "$@"; then
