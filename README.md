@@ -8,12 +8,13 @@ BECAUSE WHY NOT.
 
 This is a a series of examples of bash scripting to make a web server using little more than bash, the GNU tools, and`*Hobbit*`'s `nc` (`netcat-traditional`)... and [Bash Builder][bbuild] for the advanced example.
 
-There are three executable versions:
+There are four executable versions:
 
 * Quick and dirty implementation in `examples/webserver-dirty.sh`
 * Cleaner version in `examples/webserver-functional.sh` which uses functions and local variables
 * Fully functional one one in `bin/webserver.sh` which is a "compiled" version of the sources in `examples/src`
 	* it is a demonstration of the use of [Bash Builder][bbuild]
+* A bash-builder example using the syntax extensions
 
 The fuller version has simple additional implemented features compared to the `dirty` and `funcitonal` variants including
 
@@ -53,6 +54,14 @@ In an education setting, probably when teaching bash scripting.
 ## When not to use this
 
 To serve files for real.
+
+At worst, use `python -m SimpleHTTPServer` instead. For pity's sake.
+
+## License
+
+This software is provided under the terms of the GNU Affero Public License. This means that if you use this software to serve files, you must also provide anybody who asks for its corresponding source code.
+
+Because users of such a service should be allowed to know what a heinous person you are.
 
 
 
